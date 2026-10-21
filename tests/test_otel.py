@@ -40,7 +40,9 @@ def test_otlp_json_openinference_and_genai(client):
             "llm.output_messages.0.message.role": "assistant", "llm.output_messages.0.message.content": "hello",
             "llm.token_count.prompt": 10, "llm.token_count.completion": 5, "llm.temperature": "0.2"}),
         span(ROOT, "", "agent", 0, 2000, {
-            "openinference.span.kind": "CHAIN", "input.value": '{"question": "weather?"}', "output.value": "sunny",
+            "openinference.span.kind": "CHAIN", "input.value": '{"question": "weather?"}',
+            "llm.input_messages.0.message.role": "user", "llm.input_messages.0.message.content": "partial",
+            "output.value": json.dumps({"messages": [{"type": "ai", "data": {"content": "sunny", "id": None}}]}),
             "metadata": json.dumps({"thread_id": "t1"}), "tag.tags": ["prod"]}),
     ]
     body = {"resourceSpans": [{"resource": {"attributes": [kv("service.name", "ignored-by-header")]},

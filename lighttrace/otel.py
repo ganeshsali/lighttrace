@@ -63,7 +63,7 @@ def _run(span, b64, project, runtime):
         "name": span.get("name") or "span", "run_type": _run_type(a), "session_name": project,
         "start_time": _secs(span.get("startTimeUnixNano")), "end_time": _secs(span.get("endTimeUnixNano")),
     }
-    run["inputs"], run["outputs"] = _io(a)
+    run["inputs"], run["outputs"] = _io(a, run["run_type"] == "llm")
 
     model = a.pop("llm.model_name", None) or a.pop("gen_ai.response.model", None) or a.pop("gen_ai.request.model", None)
     params = _json(a.pop("llm.invocation_parameters", None))
@@ -107,8 +107,10 @@ def _run_type(a):
     return "chain"
 
 
-def _io(a):
-    """(inputs, outputs) from whichever convention the span uses; consumed keys are removed from a."""
+def _io(a, llm):
+    """(inputs, outputs) from whichever convention the span uses; consumed keys are removed from a.
+    Only an LLM span prefers message attributes: on a chain span OpenInference sets them from a
+    partial view of its inputs, while input.value holds all of them."""
     oi_in = [_oi_msg(m) for m in _indexed(a, "llm.input_messages")]
     oi_out = [_oi_msg(m) for m in _indexed(a, "llm.output_messages")]
     old_in = [{"role": m.get("role"), "content": m.get("content")} for m in _indexed(a, "gen_ai.prompt")]
@@ -127,8 +129,8 @@ def _io(a):
 
     msgs_in = oi_in or new_in or old_in
     msgs_out = oi_out or new_out or old_out
-    inputs = {"messages": msgs_in} if msgs_in else _wrap(raw_in, "input")
-    outputs = {"messages": msgs_out} if msgs_out else _wrap(raw_out, "output")
+    inputs = {"messages": msgs_in} if msgs_in and (llm or raw_in is None) else _wrap(raw_in, "input")
+    outputs = {"messages": msgs_out} if msgs_out and (llm or raw_out is None) else _wrap(raw_out, "output")
     return inputs, outputs
 
 
@@ -248,8 +250,20 @@ def _list(v):
     return v if isinstance(v, list) else []
 
 
+def _lc_messages(v):
+    """LangChain's message_to_dict shape {"type": "ai", "data": {...}} (OpenInference serializes
+    messages this way) -> {"type": "ai", "content": ...}, which previews and the chat view read."""
+    if isinstance(v, list):
+        return [_lc_messages(x) for x in v]
+    if isinstance(v, dict):
+        if set(v) == {"type", "data"} and isinstance(v["data"], dict) and "content" in v["data"]:
+            return {**v["data"], "type": v["type"]}
+        return {k: _lc_messages(x) for k, x in v.items()}
+    return v
+
+
 def _wrap(v, key):
-    v = _json(v)
+    v = _lc_messages(_json(v))
     if v is None or isinstance(v, dict):
         return v
     return {key: v}
