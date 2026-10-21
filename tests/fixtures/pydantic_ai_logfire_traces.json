@@ -1,0 +1,617 @@
+{
+ "resourceSpans": [
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "3199bfbb-a828-4f5e-b2fe-e73b7fbdd25e"
+      }
+     },
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "pyai-logfire"
+      }
+     },
+     {
+      "key": "logfire.version",
+      "value": {
+       "stringValue": "5.2.0"
+      }
+     }
+    ]
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "pydantic-ai",
+      "version": "2.59.0"
+     },
+     "spans": [
+      {
+       "traceId": "01a15e3011d9d3a36e9c63cdbe299618",
+       "spanId": "98b0b95fdfeb3d8d",
+       "parentSpanId": "00e43984ff90dab4",
+       "name": "chat test",
+       "kind": 3,
+       "startTimeUnixNano": "1792581571035301000",
+       "endTimeUnixNano": "1792581571075208000",
+       "attributes": [
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "test"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "test"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "test"
+         }
+        },
+        {
+         "key": "model_request_parameters",
+         "value": {
+          "stringValue": "{\"function_tools\":[{\"name\":\"weather\",\"parameters_json_schema\":{\"additionalProperties\":false,\"properties\":{\"city\":{\"type\":\"string\"}},\"required\":[\"city\"],\"type\":\"object\"},\"description\":\"Weather for a city.\",\"outer_typed_dict_key\":null,\"strict\":null,\"sequential\":false,\"kind\":\"function\",\"metadata\":null,\"timeout\":null,\"defer_loading\":false,\"unless_native\":null,\"with_native\":null,\"tool_kind\":null,\"return_schema\":null,\"include_return_schema\":null,\"toolset_id\":\"<agent>\",\"capability_id\":null}],\"native_tools\":[],\"tool_visibility\":{\"weather\":\"visible\"},\"revealed_tool_names\":[],\"deferred_capability_ids\":[],\"output_mode\":\"text\",\"output_object\":null,\"output_tools\":[],\"prompted_output_template\":null,\"allow_text_output\":true,\"allow_image_output\":false,\"instruction_parts\":null,\"thinking\":null,\"cache\":null}"
+         }
+        },
+        {
+         "key": "gen_ai.tool.definitions",
+         "value": {
+          "stringValue": "[{\"type\":\"function\",\"name\":\"weather\",\"description\":\"Weather for a city.\",\"parameters\":{\"additionalProperties\":false,\"properties\":{\"city\":{\"type\":\"string\"}},\"required\":[\"city\"],\"type\":\"object\"}}]"
+         }
+        },
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chat"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "agent"
+         }
+        },
+        {
+         "key": "gen_ai.agent.call.id",
+         "value": {
+          "stringValue": "01a15e30-11d0-76dd-b076-ac11fc849c22"
+         }
+        },
+        {
+         "key": "gen_ai.conversation.id",
+         "value": {
+          "stringValue": "01a15e30-11d0-76dd-b076-ac12e873a540"
+         }
+        },
+        {
+         "key": "logfire.span_type",
+         "value": {
+          "stringValue": "span"
+         }
+        },
+        {
+         "key": "gen_ai.input.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"system\",\"parts\":[{\"type\":\"text\",\"content\":\"Be brief.\"}]},{\"role\":\"user\",\"parts\":[{\"type\":\"text\",\"content\":\"Weather in Pune?\"}]}]"
+         }
+        },
+        {
+         "key": "gen_ai.output.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"assistant\",\"parts\":[{\"type\":\"tool_call\",\"id\":\"pyd_ai_tool_call_id__weather\",\"name\":\"weather\",\"arguments\":{\"city\":\"a\"}}]}]"
+         }
+        },
+        {
+         "key": "logfire.json_schema",
+         "value": {
+          "stringValue": "{\"type\":\"object\",\"properties\":{\"gen_ai.input.messages\":{\"type\":\"array\"},\"gen_ai.output.messages\":{\"type\":\"array\"},\"model_request_parameters\":{\"type\":\"object\"}}}"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": "56"
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": "5"
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "test"
+         }
+        },
+        {
+         "key": "logfire.msg",
+         "value": {
+          "stringValue": "chat test"
+         }
+        }
+       ],
+       "status": {},
+       "flags": 256
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "3199bfbb-a828-4f5e-b2fe-e73b7fbdd25e"
+      }
+     },
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "pyai-logfire"
+      }
+     },
+     {
+      "key": "logfire.version",
+      "value": {
+       "stringValue": "5.2.0"
+      }
+     }
+    ]
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "pydantic-ai",
+      "version": "2.59.0"
+     },
+     "spans": [
+      {
+       "traceId": "01a15e3011d9d3a36e9c63cdbe299618",
+       "spanId": "7a1a4b7e458cf0e0",
+       "parentSpanId": "00e43984ff90dab4",
+       "name": "execute_tool weather",
+       "kind": 1,
+       "startTimeUnixNano": "1792581571090318000",
+       "endTimeUnixNano": "1792581571091014000",
+       "attributes": [
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "execute_tool"
+         }
+        },
+        {
+         "key": "gen_ai.tool.name",
+         "value": {
+          "stringValue": "weather"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.id",
+         "value": {
+          "stringValue": "pyd_ai_tool_call_id__weather"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.arguments",
+         "value": {
+          "stringValue": "{\"city\":\"a\"}"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "agent"
+         }
+        },
+        {
+         "key": "gen_ai.agent.call.id",
+         "value": {
+          "stringValue": "01a15e30-11d0-76dd-b076-ac11fc849c22"
+         }
+        },
+        {
+         "key": "gen_ai.conversation.id",
+         "value": {
+          "stringValue": "01a15e30-11d0-76dd-b076-ac12e873a540"
+         }
+        },
+        {
+         "key": "logfire.msg",
+         "value": {
+          "stringValue": "running tool: weather"
+         }
+        },
+        {
+         "key": "logfire.json_schema",
+         "value": {
+          "stringValue": "{\"type\":\"object\",\"properties\":{\"gen_ai.tool.call.arguments\":{\"type\":\"object\"},\"gen_ai.tool.call.result\":{\"type\":\"object\"},\"gen_ai.tool.name\":{},\"gen_ai.tool.call.id\":{}}}"
+         }
+        },
+        {
+         "key": "logfire.span_type",
+         "value": {
+          "stringValue": "span"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.result",
+         "value": {
+          "stringValue": "sunny"
+         }
+        }
+       ],
+       "status": {},
+       "flags": 256
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "3199bfbb-a828-4f5e-b2fe-e73b7fbdd25e"
+      }
+     },
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "pyai-logfire"
+      }
+     },
+     {
+      "key": "logfire.version",
+      "value": {
+       "stringValue": "5.2.0"
+      }
+     }
+    ]
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "pydantic-ai",
+      "version": "2.59.0"
+     },
+     "spans": [
+      {
+       "traceId": "01a15e3011d9d3a36e9c63cdbe299618",
+       "spanId": "3dcede0222fd86ec",
+       "parentSpanId": "00e43984ff90dab4",
+       "name": "chat test",
+       "kind": 3,
+       "startTimeUnixNano": "1792581571093906000",
+       "endTimeUnixNano": "1792581571094740000",
+       "attributes": [
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "test"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "test"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "test"
+         }
+        },
+        {
+         "key": "model_request_parameters",
+         "value": {
+          "stringValue": "{\"function_tools\":[{\"name\":\"weather\",\"parameters_json_schema\":{\"additionalProperties\":false,\"properties\":{\"city\":{\"type\":\"string\"}},\"required\":[\"city\"],\"type\":\"object\"},\"description\":\"Weather for a city.\",\"outer_typed_dict_key\":null,\"strict\":null,\"sequential\":false,\"kind\":\"function\",\"metadata\":null,\"timeout\":null,\"defer_loading\":false,\"unless_native\":null,\"with_native\":null,\"tool_kind\":null,\"return_schema\":null,\"include_return_schema\":null,\"toolset_id\":\"<agent>\",\"capability_id\":null}],\"native_tools\":[],\"tool_visibility\":{\"weather\":\"visible\"},\"revealed_tool_names\":[],\"deferred_capability_ids\":[],\"output_mode\":\"text\",\"output_object\":null,\"output_tools\":[],\"prompted_output_template\":null,\"allow_text_output\":true,\"allow_image_output\":false,\"instruction_parts\":null,\"thinking\":null,\"cache\":null}"
+         }
+        },
+        {
+         "key": "gen_ai.tool.definitions",
+         "value": {
+          "stringValue": "[{\"type\":\"function\",\"name\":\"weather\",\"description\":\"Weather for a city.\",\"parameters\":{\"additionalProperties\":false,\"properties\":{\"city\":{\"type\":\"string\"}},\"required\":[\"city\"],\"type\":\"object\"}}]"
+         }
+        },
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chat"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "agent"
+         }
+        },
+        {
+         "key": "gen_ai.agent.call.id",
+         "value": {
+          "stringValue": "01a15e30-11d0-76dd-b076-ac11fc849c22"
+         }
+        },
+        {
+         "key": "gen_ai.conversation.id",
+         "value": {
+          "stringValue": "01a15e30-11d0-76dd-b076-ac12e873a540"
+         }
+        },
+        {
+         "key": "logfire.span_type",
+         "value": {
+          "stringValue": "span"
+         }
+        },
+        {
+         "key": "gen_ai.input.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"system\",\"parts\":[{\"type\":\"text\",\"content\":\"Be brief.\"}]},{\"role\":\"user\",\"parts\":[{\"type\":\"text\",\"content\":\"Weather in Pune?\"}]},{\"role\":\"assistant\",\"parts\":[{\"type\":\"tool_call\",\"id\":\"pyd_ai_tool_call_id__weather\",\"name\":\"weather\",\"arguments\":{\"city\":\"a\"}}]},{\"role\":\"user\",\"parts\":[{\"type\":\"tool_call_response\",\"id\":\"pyd_ai_tool_call_id__weather\",\"name\":\"weather\",\"result\":\"sunny\"}]}]"
+         }
+        },
+        {
+         "key": "gen_ai.output.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"assistant\",\"parts\":[{\"type\":\"text\",\"content\":\"{\\\"weather\\\":\\\"sunny\\\"}\"}]}]"
+         }
+        },
+        {
+         "key": "logfire.json_schema",
+         "value": {
+          "stringValue": "{\"type\":\"object\",\"properties\":{\"gen_ai.input.messages\":{\"type\":\"array\"},\"gen_ai.output.messages\":{\"type\":\"array\"},\"model_request_parameters\":{\"type\":\"object\"}}}"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": "57"
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": "9"
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "test"
+         }
+        },
+        {
+         "key": "logfire.msg",
+         "value": {
+          "stringValue": "chat test"
+         }
+        }
+       ],
+       "status": {},
+       "flags": 256
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "3199bfbb-a828-4f5e-b2fe-e73b7fbdd25e"
+      }
+     },
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "pyai-logfire"
+      }
+     },
+     {
+      "key": "logfire.version",
+      "value": {
+       "stringValue": "5.2.0"
+      }
+     }
+    ]
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "pydantic-ai",
+      "version": "2.59.0"
+     },
+     "spans": [
+      {
+       "traceId": "01a15e3011d9d3a36e9c63cdbe299618",
+       "spanId": "00e43984ff90dab4",
+       "name": "invoke_agent agent",
+       "kind": 1,
+       "startTimeUnixNano": "1792581571033138000",
+       "endTimeUnixNano": "1792581571098021000",
+       "attributes": [
+        {
+         "key": "model_name",
+         "value": {
+          "stringValue": "test"
+         }
+        },
+        {
+         "key": "agent_name",
+         "value": {
+          "stringValue": "agent"
+         }
+        },
+        {
+         "key": "gen_ai.agent.name",
+         "value": {
+          "stringValue": "agent"
+         }
+        },
+        {
+         "key": "gen_ai.agent.call.id",
+         "value": {
+          "stringValue": "01a15e30-11d0-76dd-b076-ac11fc849c22"
+         }
+        },
+        {
+         "key": "gen_ai.conversation.id",
+         "value": {
+          "stringValue": "01a15e30-11d0-76dd-b076-ac12e873a540"
+         }
+        },
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "invoke_agent"
+         }
+        },
+        {
+         "key": "logfire.msg",
+         "value": {
+          "stringValue": "agent run"
+         }
+        },
+        {
+         "key": "logfire.span_type",
+         "value": {
+          "stringValue": "span"
+         }
+        },
+        {
+         "key": "final_result",
+         "value": {
+          "stringValue": "{\"weather\":\"sunny\"}"
+         }
+        },
+        {
+         "key": "gen_ai.aggregated_usage.input_tokens",
+         "value": {
+          "intValue": "113"
+         }
+        },
+        {
+         "key": "gen_ai.aggregated_usage.output_tokens",
+         "value": {
+          "intValue": "14"
+         }
+        },
+        {
+         "key": "pydantic_ai.all_messages",
+         "value": {
+          "stringValue": "[{\"role\":\"system\",\"parts\":[{\"type\":\"text\",\"content\":\"Be brief.\"}]},{\"role\":\"user\",\"parts\":[{\"type\":\"text\",\"content\":\"Weather in Pune?\"}]},{\"role\":\"assistant\",\"parts\":[{\"type\":\"tool_call\",\"id\":\"pyd_ai_tool_call_id__weather\",\"name\":\"weather\",\"arguments\":{\"city\":\"a\"}}]},{\"role\":\"user\",\"parts\":[{\"type\":\"tool_call_response\",\"id\":\"pyd_ai_tool_call_id__weather\",\"name\":\"weather\",\"result\":\"sunny\"}]},{\"role\":\"assistant\",\"parts\":[{\"type\":\"text\",\"content\":\"{\\\"weather\\\":\\\"sunny\\\"}\"}]}]"
+         }
+        },
+        {
+         "key": "logfire.json_schema",
+         "value": {
+          "stringValue": "{\"type\":\"object\",\"properties\":{\"pydantic_ai.all_messages\":{\"type\":\"array\"},\"final_result\":{\"type\":\"object\"}}}"
+         }
+        },
+        {
+         "key": "logfire.metrics",
+         "value": {
+          "stringValue": "{\"gen_ai.client.token.usage\": {\"details\": [{\"attributes\": {\"gen_ai.operation.name\": \"chat\", \"gen_ai.provider.name\": \"test\", \"gen_ai.request.model\": \"test\", \"gen_ai.response.model\": \"test\", \"gen_ai.system\": \"test\", \"gen_ai.token.type\": \"input\"}, \"total\": 113}, {\"attributes\": {\"gen_ai.operation.name\": \"chat\", \"gen_ai.provider.name\": \"test\", \"gen_ai.request.model\": \"test\", \"gen_ai.response.model\": \"test\", \"gen_ai.system\": \"test\", \"gen_ai.token.type\": \"output\"}, \"total\": 14}], \"total\": 127}}"
+         }
+        }
+       ],
+       "status": {},
+       "flags": 256
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,9 +1,10 @@
 """OTLP/HTTP trace ingest: OpenTelemetry spans -> lighttrace runs.
 
 Spans become the same run dicts the LangSmith SDK sends, so storage and UI are shared.
-Understands the OpenInference (Arize Phoenix) and OTel GenAI semantic conventions,
-OpenLLMetry's entity input/output, the Vercel AI SDK's `ai.*` attributes and the Langfuse
-SDK's `langfuse.*` ones; every attribute it does not map lands in metadata.
+Understands the OpenInference (Arize Phoenix) and OTel GenAI semantic conventions (attributes,
+span events and log events), OpenLLMetry, OpenLIT, the Vercel AI SDK (`ai.*`), Langfuse
+(`langfuse.*`), MLflow (`mlflow.*`), the LangSmith SDK's OTel mode (`langsmith.*`), Google ADK
+(`gcp.vertex.agent.*`) and Pydantic AI / Logfire; every attribute it does not map lands in metadata.
 
 Traces: one lighttrace trace per (OTel trace id, service.name), so several services that share
 an OTel trace id (A2A, out-of-process MCP servers) never collide; each shows as its own trace,
@@ -13,60 +14,109 @@ another process) hangs under a stand-in root for its service's part of the trace
 
 import base64
 import json
+import string
 import uuid
 
 from .store import THREAD_KEYS
 
 KINDS = {"llm": "llm", "tool": "tool", "retriever": "retriever", "reranker": "retriever",
-         "embedding": "embedding", "prompt": "prompt", "agent": "agent", "generation": "llm"}
+         "embedding": "embedding", "prompt": "prompt", "agent": "agent", "generation": "llm", "chat_model": "llm",
+         "parser": "parser"}
 GENAI_OPS = {"chat": "llm", "text_completion": "llm", "generate_content": "llm", "embeddings": "embedding",
              "execute_tool": "tool", "invoke_agent": "agent", "create_agent": "agent"}
 SESSION_KEYS = ("session.id", "gen_ai.conversation.id", "langfuse.session.id")
-META_PREFIXES = ("ai.telemetry.metadata.", "langfuse.observation.metadata.", "langfuse.trace.metadata.")
+META_PREFIXES = ("ai.telemetry.metadata.", "langfuse.observation.metadata.", "langfuse.trace.metadata.",
+                 "langsmith.metadata.")
 STATUS_ERROR = 2
 REMOTE_PARENT = 0x300  # span flags: HAS_IS_REMOTE | IS_REMOTE
 
 
-def parse(body, content_type):
-    """OTLP request body -> (ExportTraceServiceRequest as a JSON-style dict, ids_are_base64)."""
+def parse(body, content_type, kind="traces"):
+    """OTLP request body (protobuf or JSON) -> the Export*ServiceRequest as a JSON-style dict."""
     if "protobuf" in content_type:
-        from google.protobuf.json_format import MessageToDict
-        from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
-
-        msg = ExportTraceServiceRequest()
-        msg.ParseFromString(body)
-        return MessageToDict(msg, use_integers_for_enums=True), True
-    return json.loads(body), False  # OTLP/JSON: ids are hex
+        return to_dict(MESSAGES[kind]().FromString(body))
+    return json.loads(body)
 
 
-def to_runs(request, b64, project=None):
-    runs = []
-    for rs in request.get("resourceSpans") or []:
+def to_dict(msg):
+    from google.protobuf.json_format import MessageToDict
+
+    return MessageToDict(msg, use_integers_for_enums=True)
+
+
+def _messages():
+    from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest
+    from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+
+    return {"traces": ExportTraceServiceRequest, "logs": ExportLogsServiceRequest}
+
+
+class _Lazy(dict):
+    def __missing__(self, key):
+        self.update(_messages())
+        return self[key]
+
+
+MESSAGES = _Lazy()
+
+
+def _resources(request, key, project):
+    """(project, service, resource attrs, scope name, items) per scope in an OTLP request."""
+    for rs in request.get(f"resource{key}") or []:
         resource = _attrs((rs.get("resource") or {}).get("attributes"))
         service = str(resource.get("service.name") or "")
         proj = project or service
         if not proj or proj.startswith("unknown_service"):
             proj = "default"
-        for ss in rs.get("scopeSpans") or []:
+        for ss in rs.get(f"scope{key}") or []:
             scope = (ss.get("scope") or {}).get("name")
-            for span in ss.get("spans") or []:
-                runs += _run(span, b64, proj, {**resource, **({"otel.scope": scope} if scope else {})}, service)
+            yield proj, service, {**resource, **({"otel.scope": scope} if scope else {})}, ss
+
+
+def to_runs(request, project=None):
+    runs = []
+    for proj, service, runtime, ss in _resources(request, "Spans", project):
+        for span in ss.get("spans") or []:
+            runs += _run(span, proj, runtime, service)
     return runs
+
+
+def log_messages(request):
+    """GenAI log events (the official OTel GenAI instrumentations put prompt/response content here)
+    -> [{id, root, span, side, messages}] for Store.attach_messages. Other logs are ignored."""
+    out = []
+    for _, service, _, sl in _resources(request, "Logs", None):
+        for rec in sorted(sl.get("logRecords") or [], key=lambda r: int(r.get("timeUnixNano") or 0)):
+            a = _attrs(rec.get("attributes"))
+            body = _value(rec.get("body") or {})
+            name = rec.get("eventName") or a.get("event.name")
+            found = _event_messages(name, {**a, **body} if isinstance(body, dict) else body if body else a)
+            trace_hex, span_hex = _hex(rec.get("traceId")), _hex(rec.get("spanId"))
+            if not trace_hex or not span_hex:
+                continue
+            trace = str(uuid.uuid5(uuid.UUID(hex=trace_hex), service))
+            out += [{"id": _child_id(trace, span_hex), "root": trace, "span": span_hex, "side": side, "messages": msgs}
+                    for side, msgs in found.items()]
+    return out
 
 
 # ---------------------------------------------------------------- span -> run
 
-def _run(span, b64, project, runtime, service):
+def _run(span, project, runtime, service):
     """One span -> [run], plus a stand-in root when the span's parent is in another process."""
-    trace_hex = _hex(span["traceId"], b64)
-    parent_hex = _hex(span.get("parentSpanId"), b64)
+    trace_hex, span_hex = _hex(span["traceId"]), _hex(span["spanId"])
+    parent_hex = _hex(span.get("parentSpanId"))
     remote = bool(parent_hex) and int(span.get("flags") or 0) & REMOTE_PARENT == REMOTE_PARENT
     trace = str(uuid.uuid5(uuid.UUID(hex=trace_hex), service))
     # The root's run id is the trace id (the store's invariant). Its children point at the root
     # span's own id, which no row has; Store.trace() hangs such orphans under the root.
-    run_id = trace if not parent_hex else _child_id(trace, _hex(span["spanId"], b64))
+    run_id = trace if not parent_hex else _child_id(trace, span_hex)
     parent = None if not parent_hex else trace if remote else _child_id(trace, parent_hex)
     a = _attrs(span.get("attributes"))
+    schema = _json(a.get("logfire.json_schema"))  # Logfire says which attributes hold JSON
+    for k, v in (schema.get("properties") or {}).items() if isinstance(schema, dict) else ():
+        if k in a and isinstance(v, dict) and v.get("type") in ("object", "array"):
+            a[k] = _json(a[k])
 
     run = {
         "id": run_id, "trace_id": trace, "parent_run_id": parent,
@@ -84,14 +134,17 @@ def _run(span, b64, project, runtime, service):
     if model:
         params.setdefault("model", model)
 
-    usage = _json(a.pop("langfuse.observation.usage_details", None))
+    usage = _json(_first(a, "langfuse.observation.usage_details", "mlflow.chat.tokenUsage"))
+    if not isinstance(usage, dict) and run["run_type"] == "llm" and isinstance(run["outputs"], dict):
+        usage = run["outputs"].get("usage")  # an OpenAI-shaped response as the output (MLflow)
     usage = usage if isinstance(usage, dict) else {}
     i = _first(a, "llm.token_count.prompt", "gen_ai.usage.input_tokens", "gen_ai.usage.prompt_tokens",
                "ai.usage.inputTokens", "ai.usage.promptTokens") or _pick(usage, "input", "prompt_tokens", "input_tokens")
     o = _first(a, "llm.token_count.completion", "gen_ai.usage.output_tokens", "gen_ai.usage.completion_tokens",
                "ai.usage.outputTokens", "ai.usage.completionTokens") or _pick(usage, "output", "completion_tokens",
                                                                              "output_tokens")
-    t = _first(a, "llm.token_count.total", "llm.usage.total_tokens", "ai.usage.totalTokens") or _pick(
+    t = _first(a, "llm.token_count.total", "llm.usage.total_tokens", "gen_ai.usage.total_tokens",
+               "ai.usage.totalTokens") or _pick(
         usage, "total", "total_tokens")
     if i is not None or o is not None:
         run["input_tokens"], run["output_tokens"] = i, o
@@ -104,15 +157,24 @@ def _run(span, b64, project, runtime, service):
     session = next((a.pop(k) for k in SESSION_KEYS if a.get(k) not in (None, "")), None)
     if session is not None and not any(meta.get(k) not in (None, "") for k in THREAD_KEYS):
         meta["session_id"] = session
-    tags = _json(_first(a, "tag.tags", "langfuse.trace.tags"))
+    tags = _json(_first(a, "tag.tags", "langfuse.trace.tags", "langsmith.span.tags"))
+    tags = [t for t in tags.split(",") if t] if isinstance(tags, str) else tags  # LangSmith: comma-separated
     run["tags"] = [str(x) for x in tags] if isinstance(tags, list) else None
 
     events = span.get("events") or []
+    found = {"inputs": [], "outputs": []}
+    for e in events:  # GenAI content as span events (older instrumentations)
+        for side, msgs in _event_messages(e.get("name"), _attrs(e.get("attributes"))).items():
+            found[side] += msgs
+    for side, msgs in found.items():
+        if msgs and run[side] is None:
+            run[side] = {"messages": msgs}
     run["error"] = _error(span.get("status") or {}, events, a)
     run["events"] = [{"name": e.get("name"), "time": _secs(e.get("timeUnixNano")), "kwargs": _attrs(e.get("attributes"))}
                      for e in events] or None
     if run_id == trace:
-        meta["otel.trace_id"] = trace_hex
+        meta["otel.trace_id"], meta["otel.span_id"] = trace_hex, span_hex
+        run["absorb"] = _child_id(trace, span_hex)  # GenAI log events that arrived first (Store.attach_messages)
     if remote:
         meta["otel.remote_parent_span_id"] = parent_hex
     # Leftover attributes are still useful (temperature, user.id, ...); explicit metadata wins.
@@ -130,12 +192,17 @@ def _run(span, b64, project, runtime, service):
 
 def _run_type(a):
     kind = str(a.pop("openinference.span.kind", None) or a.get("traceloop.span.kind")
-               or a.pop("langfuse.observation.type", None) or "").lower()
+               or a.pop("langfuse.observation.type", None) or a.pop("langsmith.span.kind", None)
+               or _json(a.pop("mlflow.spanType", None)) or "").lower()
     if kind in KINDS:
         return KINDS[kind]
     op = a.get("gen_ai.operation.name")
     if op in GENAI_OPS:
         return GENAI_OPS[op]
+    if "pydantic_ai.all_messages" in a or "all_messages_events" in a:  # Pydantic AI's agent run
+        return "agent"
+    if a.get("gen_ai.tool.name") and not op:  # Pydantic AI < 1.0 "running tool"
+        return "tool"
     if a.get("llm.request.type") in ("chat", "completion"):
         return "llm"
     vercel = str(a.get("ai.operationId") or "")
@@ -160,7 +227,7 @@ def _io(a, llm):
     system = [{"role": "system", "content": _parts_text(_json(a.pop("gen_ai.system_instructions", None)))}]
     new_in = [_genai_msg(m) for m in _list(_json(a.pop("gen_ai.input.messages", None)))]
     new_out = [_genai_msg(m) for m in _list(_json(a.pop("gen_ai.output.messages", None)))]
-    if new_in and system[0]["content"]:
+    if new_in and system[0]["content"] and not any(m["role"] == "system" for m in new_in):
         new_in = system + new_in
     # Vercel AI SDK: ai.prompt.messages on model calls, ai.prompt {system, prompt|messages} on the outer span
     prompt = _json(a.pop("ai.prompt", None))
@@ -173,15 +240,35 @@ def _io(a, llm):
     ai_out = [_genai_msg({"role": "assistant", "content": ([{"type": "text", "text": text}] if text else []) + [
         {"type": "tool-call", **c} for c in calls if isinstance(c, dict)]})] if text is not None or calls else []
 
+    # Pydantic AI: the agent run's whole conversation (cut after the last user turn, the answer is
+    # final_result); before 1.0 as GenAI events, on model calls too ("events").
+    convo = [_genai_msg(m) for m in _list(_json(a.pop("pydantic_ai.all_messages", None)))]
+    pyd = {"inputs": [], "outputs": []}
+    for key in ("all_messages_events", "events"):
+        events = _list(_json(a.get(key)))
+        if events and all(isinstance(e, dict) and str(e.get("event.name")).startswith("gen_ai.") for e in events):
+            del a[key]
+            for e in events:
+                for side, msgs in _event_messages(e["event.name"], e).items():
+                    pyd[side] += msgs
+    convo = convo or pyd["inputs"]
+    last_user = max((i for i, m in enumerate(convo) if m["role"] == "user" and "tool_call_id" not in m),
+                    default=len(convo) - 1)
+    pyd_in = convo[:last_user + 1]
+    adk_in, adk_out = _gemini(_json(a.pop("gcp.vertex.agent.llm_request", None))), _gemini(
+        _json(a.pop("gcp.vertex.agent.llm_response", None)))
+
     raw_in = _first(a, "input.value", "traceloop.entity.input", "gen_ai.tool.call.arguments", "ai.toolCall.args",
-                    "langfuse.observation.input", "langfuse.trace.input")
+                    "langfuse.observation.input", "langfuse.trace.input", "mlflow.spanInputs",
+                    "gcp.vertex.agent.tool_call_args", "tool_arguments", "gen_ai.prompt")
     raw_out = _first(a, "output.value", "traceloop.entity.output", "gen_ai.tool.call.result", "ai.toolCall.result",
-                     "ai.response.object", "langfuse.observation.output", "langfuse.trace.output")
+                     "ai.response.object", "langfuse.observation.output", "langfuse.trace.output", "mlflow.spanOutputs",
+                     "gcp.vertex.agent.tool_response", "tool_response", "final_result", "gen_ai.completion")
     a.pop("input.mime_type", None)
     a.pop("output.mime_type", None)
 
-    msgs_in = oi_in or new_in or ai_in or old_in
-    msgs_out = oi_out or new_out or ai_out or old_out
+    msgs_in = oi_in or new_in or ai_in or pyd_in or adk_in or old_in
+    msgs_out = oi_out or new_out or ai_out or pyd["outputs"] or adk_out or old_out
     inputs = {"messages": msgs_in} if msgs_in and (llm or raw_in is None) else _wrap(raw_in, "input", llm)
     outputs = {"messages": msgs_out} if msgs_out and (llm or raw_out is None) else _wrap(raw_out, "output", llm)
     return inputs, outputs
@@ -227,10 +314,76 @@ def _genai_msg(m):
     return out
 
 
+EVENT_ROLES = {"gen_ai.system.message": "system", "gen_ai.user.message": "user",
+               "gen_ai.assistant.message": "assistant", "gen_ai.tool.message": "tool"}
+
+
+def _event_messages(name, body):
+    """A GenAI event (log record or span event) -> {"inputs" | "outputs": [message]}, empty if it isn't one.
+    One event per message (gen_ai.user.message, ..., gen_ai.choice) with the message as its body;
+    gen_ai.client.inference.operation.details with gen_ai.input/output.messages; or the oldest
+    gen_ai.content.prompt / .completion with a gen_ai.prompt / .completion attribute."""
+    body = body if isinstance(body, dict) else {"content": body}
+    if name in ("gen_ai.content.prompt", "gen_ai.content.completion"):
+        side, key, role = ("inputs", "gen_ai.prompt", "user") if name.endswith("prompt") else (
+            "outputs", "gen_ai.completion", "assistant")
+        v = _json(body.get(key))
+        msgs = v if isinstance(v, list) else [{"role": role, "content": v}] if v is not None else []
+        return {side: [_event_msg(m if isinstance(m, dict) else {"role": role, "content": m}, role) for m in msgs]}
+    if name == "gen_ai.client.inference.operation.details":
+        found = {side: [_genai_msg(m) for m in _list(_json(body.get(f"gen_ai.{key}.messages")))]
+                 for side, key in (("inputs", "input"), ("outputs", "output"))}
+        return {k: v for k, v in found.items() if v}
+    if name == "gen_ai.choice":
+        m = body.get("message")
+        return {"outputs": [_event_msg(m if isinstance(m, dict) else {"content": m}, "assistant")]}
+    if name in EVENT_ROLES:
+        return {"inputs": [_event_msg(body, EVENT_ROLES[name])]}
+    return {}
+
+
+def _gemini(v):
+    """Google ADK's llm_request ({config.system_instruction, contents}) or llm_response ({content})
+    -> messages. Gemini parts: text, function_call, function_response."""
+    if not isinstance(v, dict):
+        return []
+    system = (v.get("config") or {}).get("system_instruction")
+    out = [{"role": "system", "content": system}] if isinstance(system, str) and system else []
+    for c in _list(v.get("contents")) or ([v["content"]] if isinstance(v.get("content"), dict) else []):
+        m = {"role": {"model": "assistant"}.get(c.get("role"), c.get("role") or "user"), "content": ""}
+        for p in _list(c.get("parts")):
+            if p.get("text"):
+                m["content"] += p["text"]
+            elif p.get("function_call"):
+                f = p["function_call"]
+                m.setdefault("tool_calls", []).append({"name": f.get("name"), "id": f.get("id"), "args": f.get("args")})
+            elif p.get("function_response"):
+                f = p["function_response"]
+                m.update(role="tool", name=f.get("name"), tool_call_id=f.get("id"),
+                         content=json.dumps(f.get("response"), ensure_ascii=False, default=str))
+        out.append(m)
+    return out
+
+
+def _event_msg(d, role):
+    """{role?, content, tool_calls: [{id, function: {name, arguments}}], id} -> message dict."""
+    content = _json(d.get("content"))
+    m = {"role": d.get("role") or role,
+         "content": content if isinstance(content, str) or content is None else _parts_text(content)
+         if isinstance(content, list) else json.dumps(content, ensure_ascii=False, default=str)}
+    calls = [c for c in _list(d.get("tool_calls")) if isinstance(c, dict)]
+    if calls:
+        m["tool_calls"] = [{"name": (c.get("function") or {}).get("name"), "id": c.get("id"),
+                            "args": _json((c.get("function") or {}).get("arguments"))} for c in calls]
+    if m["role"] == "tool" and d.get("id"):
+        m["tool_call_id"] = d["id"]
+    return m
+
+
 def _parts_text(parts):
     if isinstance(parts, str):
         return parts
-    return "\n".join(p.get("content") or "" if isinstance(p, dict) and p.get("type") == "text"
+    return "\n".join(p.get("content") or p.get("text") or "" if isinstance(p, dict) and p.get("type") == "text"
                      else json.dumps(p, ensure_ascii=False, default=str) for p in _list(parts))
 
 
@@ -252,10 +405,13 @@ def _error(status, events, a):
 
 # ---------------------------------------------------------------- small helpers
 
-def _hex(v, b64):
+def _hex(v):
+    """OTLP/JSON ids are hex by the spec; protobuf-to-JSON (and some exporters) give base64.
+    Hex ids are 16 or 32 characters, base64 ones 12 or 24, so the length tells them apart."""
     if not v:
         return None
-    h = base64.b64decode(v).hex() if b64 else str(v).lower()
+    v = str(v)
+    h = v.lower() if len(v) in (16, 32) and all(c in string.hexdigits for c in v) else base64.b64decode(v).hex()
     return None if not h.strip("0") else h  # all-zero parent id means "no parent"
 
 
@@ -335,6 +491,8 @@ def _lc_messages(v):
 
 def _wrap(v, key, llm=False):
     v = _lc_messages(_json(v))
+    if isinstance(v, dict) and set(v) == {"args", "kwargs"} and not v["kwargs"] and len(_list(v["args"])) == 1:
+        v = v["args"][0]  # OpenLLMetry's @task / @workflow input with one positional argument
     if llm and isinstance(v, dict) and "role" in v:  # one chat message (Langfuse generation output)
         v = [v]
     if llm and isinstance(v, list) and v and all(isinstance(m, dict) and "role" in m for m in v):
@@ -342,3 +500,45 @@ def _wrap(v, key, llm=False):
     if v is None or isinstance(v, dict):
         return v
     return {key: v}
+
+
+# ---------------------------------------------------------------- OTLP/gRPC
+
+def serve_grpc(host, port, max_bytes, key_project, ingest):
+    """OTLP/gRPC on its own port: the same auth (x-api-key or authorization metadata) and the same
+    conversion as OTLP/HTTP. Metrics are accepted and dropped. Returns the started grpc.Server."""
+    from concurrent import futures
+
+    import grpc
+    from opentelemetry.proto.collector.logs.v1 import logs_service_pb2 as logs
+    from opentelemetry.proto.collector.metrics.v1 import metrics_service_pb2 as metrics
+    from opentelemetry.proto.collector.trace.v1 import trace_service_pb2 as trace
+
+    def service(kind, pkg, name, req_type, resp_type):
+        def export(req, ctx):
+            md = dict(ctx.invocation_metadata())
+            auth = md.get("authorization") or ""
+            key = md.get("x-api-key") or (auth[7:] if auth.lower().startswith("bearer ") else "")
+            try:
+                project = key_project(key)
+            except PermissionError:
+                ctx.abort(grpc.StatusCode.UNAUTHENTICATED, "invalid api key")
+            try:
+                ingest(kind, to_dict(req) if kind != "metrics" else None, project, md.get("x-lighttrace-project"))
+            except ValueError:
+                ctx.abort(grpc.StatusCode.INVALID_ARGUMENT, "invalid OTLP payload")
+            return resp_type()
+
+        return grpc.method_handlers_generic_handler(f"opentelemetry.proto.collector.{pkg}.v1.{name}", {
+            "Export": grpc.unary_unary_rpc_method_handler(export, request_deserializer=req_type.FromString,
+                                                          response_serializer=resp_type.SerializeToString)})
+
+    server = grpc.server(futures.ThreadPoolExecutor(4), options=[("grpc.max_receive_message_length", max_bytes)])
+    server.add_generic_rpc_handlers([
+        service("traces", "trace", "TraceService", trace.ExportTraceServiceRequest, trace.ExportTraceServiceResponse),
+        service("logs", "logs", "LogsService", logs.ExportLogsServiceRequest, logs.ExportLogsServiceResponse),
+        service("metrics", "metrics", "MetricsService", metrics.ExportMetricsServiceRequest,
+                metrics.ExportMetricsServiceResponse)])
+    server.add_insecure_port(f"{host}:{port}")
+    server.start()
+    return server

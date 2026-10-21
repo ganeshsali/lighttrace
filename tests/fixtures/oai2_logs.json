@@ -1,0 +1,732 @@
+{
+ "resourceLogs": [
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "b96bd921-2623-4bd5-819e-2f4861a6d356"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "oai-app"
+      }
+     }
+    ]
+   },
+   "scopeLogs": [
+    {
+     "scope": {
+      "name": "opentelemetry.instrumentation.openai_v2"
+     },
+     "logRecords": [
+      {
+       "body": {
+        "kvlistValue": {
+         "values": [
+          {
+           "key": "content",
+           "value": {
+            "stringValue": "Be brief."
+           }
+          }
+         ]
+        }
+       },
+       "attributes": [
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "openai"
+         }
+        }
+       ],
+       "flags": 3,
+       "traceId": "825f20b63eaba900292db80349e2751a",
+       "spanId": "0f94bc91fad90856",
+       "observedTimeUnixNano": "1792581352703767000",
+       "eventName": "gen_ai.system.message"
+      }
+     ],
+     "schemaUrl": "https://opentelemetry.io/schemas/1.30.0"
+    }
+   ]
+  },
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "b96bd921-2623-4bd5-819e-2f4861a6d356"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "oai-app"
+      }
+     }
+    ]
+   },
+   "scopeLogs": [
+    {
+     "scope": {
+      "name": "opentelemetry.instrumentation.openai_v2"
+     },
+     "logRecords": [
+      {
+       "body": {
+        "kvlistValue": {
+         "values": [
+          {
+           "key": "content",
+           "value": {
+            "stringValue": "Weather in Pune?"
+           }
+          }
+         ]
+        }
+       },
+       "attributes": [
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "openai"
+         }
+        }
+       ],
+       "flags": 3,
+       "traceId": "825f20b63eaba900292db80349e2751a",
+       "spanId": "0f94bc91fad90856",
+       "observedTimeUnixNano": "1792581352711959000",
+       "eventName": "gen_ai.user.message"
+      }
+     ],
+     "schemaUrl": "https://opentelemetry.io/schemas/1.30.0"
+    }
+   ]
+  },
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "b96bd921-2623-4bd5-819e-2f4861a6d356"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "oai-app"
+      }
+     }
+    ]
+   },
+   "scopeLogs": [
+    {
+     "scope": {
+      "name": "opentelemetry.instrumentation.openai_v2"
+     },
+     "logRecords": [
+      {
+       "body": {
+        "kvlistValue": {
+         "values": [
+          {
+           "key": "index",
+           "value": {
+            "intValue": "0"
+           }
+          },
+          {
+           "key": "finish_reason",
+           "value": {
+            "stringValue": "tool_calls"
+           }
+          },
+          {
+           "key": "message",
+           "value": {
+            "kvlistValue": {
+             "values": [
+              {
+               "key": "role",
+               "value": {
+                "stringValue": "assistant"
+               }
+              },
+              {
+               "key": "tool_calls",
+               "value": {
+                "arrayValue": {
+                 "values": [
+                  {
+                   "kvlistValue": {
+                    "values": [
+                     {
+                      "key": "id",
+                      "value": {
+                       "stringValue": "call_1"
+                      }
+                     },
+                     {
+                      "key": "type",
+                      "value": {
+                       "stringValue": "function"
+                      }
+                     },
+                     {
+                      "key": "function",
+                      "value": {
+                       "kvlistValue": {
+                        "values": [
+                         {
+                          "key": "name",
+                          "value": {
+                           "stringValue": "weather"
+                          }
+                         },
+                         {
+                          "key": "arguments",
+                          "value": {
+                           "stringValue": "{\"city\": \"Pune\"}"
+                          }
+                         }
+                        ]
+                       }
+                      }
+                     }
+                    ]
+                   }
+                  }
+                 ]
+                }
+               }
+              }
+             ]
+            }
+           }
+          }
+         ]
+        }
+       },
+       "attributes": [
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "openai"
+         }
+        }
+       ],
+       "flags": 3,
+       "traceId": "825f20b63eaba900292db80349e2751a",
+       "spanId": "0f94bc91fad90856",
+       "observedTimeUnixNano": "1792581352781423000",
+       "eventName": "gen_ai.choice"
+      }
+     ],
+     "schemaUrl": "https://opentelemetry.io/schemas/1.30.0"
+    }
+   ]
+  },
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "b96bd921-2623-4bd5-819e-2f4861a6d356"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "oai-app"
+      }
+     }
+    ]
+   },
+   "scopeLogs": [
+    {
+     "scope": {
+      "name": "opentelemetry.instrumentation.openai_v2"
+     },
+     "logRecords": [
+      {
+       "body": {
+        "kvlistValue": {
+         "values": [
+          {
+           "key": "content",
+           "value": {
+            "stringValue": "Be brief."
+           }
+          }
+         ]
+        }
+       },
+       "attributes": [
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "openai"
+         }
+        }
+       ],
+       "flags": 3,
+       "traceId": "916d2eaee90bb952f18e1e8cd74bb54e",
+       "spanId": "cbf72697e58b799e",
+       "observedTimeUnixNano": "1792581352788213000",
+       "eventName": "gen_ai.system.message"
+      }
+     ],
+     "schemaUrl": "https://opentelemetry.io/schemas/1.30.0"
+    }
+   ]
+  },
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "b96bd921-2623-4bd5-819e-2f4861a6d356"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "oai-app"
+      }
+     }
+    ]
+   },
+   "scopeLogs": [
+    {
+     "scope": {
+      "name": "opentelemetry.instrumentation.openai_v2"
+     },
+     "logRecords": [
+      {
+       "body": {
+        "kvlistValue": {
+         "values": [
+          {
+           "key": "content",
+           "value": {
+            "stringValue": "Weather in Pune?"
+           }
+          }
+         ]
+        }
+       },
+       "attributes": [
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "openai"
+         }
+        }
+       ],
+       "flags": 3,
+       "traceId": "916d2eaee90bb952f18e1e8cd74bb54e",
+       "spanId": "cbf72697e58b799e",
+       "observedTimeUnixNano": "1792581352789865000",
+       "eventName": "gen_ai.user.message"
+      }
+     ],
+     "schemaUrl": "https://opentelemetry.io/schemas/1.30.0"
+    }
+   ]
+  },
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "b96bd921-2623-4bd5-819e-2f4861a6d356"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "oai-app"
+      }
+     }
+    ]
+   },
+   "scopeLogs": [
+    {
+     "scope": {
+      "name": "opentelemetry.instrumentation.openai_v2"
+     },
+     "logRecords": [
+      {
+       "body": {
+        "kvlistValue": {
+         "values": [
+          {
+           "key": "tool_calls",
+           "value": {
+            "arrayValue": {
+             "values": [
+              {
+               "kvlistValue": {
+                "values": [
+                 {
+                  "key": "id",
+                  "value": {
+                   "stringValue": "call_1"
+                  }
+                 },
+                 {
+                  "key": "type",
+                  "value": {
+                   "stringValue": "function"
+                  }
+                 },
+                 {
+                  "key": "function",
+                  "value": {
+                   "kvlistValue": {
+                    "values": [
+                     {
+                      "key": "name",
+                      "value": {
+                       "stringValue": "weather"
+                      }
+                     },
+                     {
+                      "key": "arguments",
+                      "value": {
+                       "stringValue": "{\"city\": \"Pune\"}"
+                      }
+                     }
+                    ]
+                   }
+                  }
+                 }
+                ]
+               }
+              }
+             ]
+            }
+           }
+          }
+         ]
+        }
+       },
+       "attributes": [
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "openai"
+         }
+        }
+       ],
+       "flags": 3,
+       "traceId": "916d2eaee90bb952f18e1e8cd74bb54e",
+       "spanId": "cbf72697e58b799e",
+       "observedTimeUnixNano": "1792581352791325000",
+       "eventName": "gen_ai.assistant.message"
+      }
+     ],
+     "schemaUrl": "https://opentelemetry.io/schemas/1.30.0"
+    }
+   ]
+  },
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "b96bd921-2623-4bd5-819e-2f4861a6d356"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "oai-app"
+      }
+     }
+    ]
+   },
+   "scopeLogs": [
+    {
+     "scope": {
+      "name": "opentelemetry.instrumentation.openai_v2"
+     },
+     "logRecords": [
+      {
+       "body": {
+        "kvlistValue": {
+         "values": [
+          {
+           "key": "content",
+           "value": {
+            "stringValue": "sunny"
+           }
+          },
+          {
+           "key": "id",
+           "value": {
+            "stringValue": "call_1"
+           }
+          }
+         ]
+        }
+       },
+       "attributes": [
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "openai"
+         }
+        }
+       ],
+       "flags": 3,
+       "traceId": "916d2eaee90bb952f18e1e8cd74bb54e",
+       "spanId": "cbf72697e58b799e",
+       "observedTimeUnixNano": "1792581352793196000",
+       "eventName": "gen_ai.tool.message"
+      }
+     ],
+     "schemaUrl": "https://opentelemetry.io/schemas/1.30.0"
+    }
+   ]
+  },
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "b96bd921-2623-4bd5-819e-2f4861a6d356"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "oai-app"
+      }
+     }
+    ]
+   },
+   "scopeLogs": [
+    {
+     "scope": {
+      "name": "opentelemetry.instrumentation.openai_v2"
+     },
+     "logRecords": [
+      {
+       "body": {
+        "kvlistValue": {
+         "values": [
+          {
+           "key": "index",
+           "value": {
+            "intValue": "0"
+           }
+          },
+          {
+           "key": "finish_reason",
+           "value": {
+            "stringValue": "stop"
+           }
+          },
+          {
+           "key": "message",
+           "value": {
+            "kvlistValue": {
+             "values": [
+              {
+               "key": "role",
+               "value": {
+                "stringValue": "assistant"
+               }
+              },
+              {
+               "key": "content",
+               "value": {
+                "stringValue": "Hello from the stub."
+               }
+              }
+             ]
+            }
+           }
+          }
+         ]
+        }
+       },
+       "attributes": [
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "openai"
+         }
+        }
+       ],
+       "flags": 3,
+       "traceId": "916d2eaee90bb952f18e1e8cd74bb54e",
+       "spanId": "cbf72697e58b799e",
+       "observedTimeUnixNano": "1792581352797374000",
+       "eventName": "gen_ai.choice"
+      }
+     ],
+     "schemaUrl": "https://opentelemetry.io/schemas/1.30.0"
+    }
+   ]
+  }
+ ]
+}

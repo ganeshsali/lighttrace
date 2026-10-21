@@ -86,6 +86,9 @@ do not arrive, export the variables in the shell, or have the app copy its own s
 
 Any app instrumented with OpenTelemetry can export to `POST /v1/traces` (OTLP over HTTP, protobuf or
 JSON, optionally gzip). For example, LlamaIndex, CrewAI, the raw OpenAI SDK, or non-Python apps.
+`POST /v1/logs` takes the prompt/response content that the official OTel GenAI instrumentations send as
+log events, and `POST /v1/metrics` is accepted and dropped (so exporters don't error). OTLP over **gRPC**
+works too: `pip install 'lighttrace[grpc]'` and set `LIGHTTRACE_GRPC_PORT=4317`.
 
 ```
 OTEL_EXPORTER_OTLP_ENDPOINT=http://<lighttrace-host>:1984
@@ -104,6 +107,12 @@ With a project key the project is the key's. With an admin key it comes from the
 | OpenLLMetry (Traceloop) | `traceloop.span.kind`, `traceloop.entity.input`/`output`, `gen_ai.prompt.N`/`gen_ai.completion.N` |
 | Vercel AI SDK / Mastra (`experimental_telemetry`) | `ai.operationId` (model call → llm, `ai.toolCall` → tool), `ai.prompt`, `ai.prompt.messages`, `ai.response.text`/`toolCalls`, `ai.usage.*`, `ai.model.id`, `ai.toolCall.*`, `ai.settings.*`, `ai.telemetry.metadata.*` |
 | Langfuse SDK v3 | `langfuse.observation.type`/`input`/`output`/`model.name`/`model.parameters`/`usage_details`/`level`/`metadata.*`, `langfuse.trace.tags`/`input`/`output`/`metadata.*`, `session.id` |
+| OTel GenAI events | log events or span events `gen_ai.system/user/assistant/tool.message`, `gen_ai.choice`, `gen_ai.client.inference.operation.details`, and the older `gen_ai.content.prompt`/`completion`, matched to their span by trace/span id whichever arrives first |
+| MLflow | `mlflow.spanType`, `mlflow.spanInputs`/`spanOutputs`, `mlflow.chat.tokenUsage` (or OpenAI-style `usage` in the output) |
+| LangSmith SDK OTel mode | `langsmith.span.kind`, `langsmith.metadata.*`, `langsmith.span.tags`, `gen_ai.prompt`/`gen_ai.completion` JSON |
+| Google ADK | `gcp.vertex.agent.llm_request`/`llm_response` (as chat messages), `tool_call_args`/`tool_response` |
+| Pydantic AI / Logfire | GenAI attributes, `pydantic_ai.all_messages` + `final_result` on the agent run, pre-1.0 `events`/`all_messages_events`; `logfire.json_schema` decodes JSON-valued attributes, other `logfire.*` stay as metadata |
+| OpenLIT | GenAI attributes and its operation-details log event |
 
 Every other span attribute shows up as run metadata (so the `key:value` filter works on it), resource
 attributes under Runtime, and an error status with its `exception` event becomes the run's error.
@@ -172,6 +181,7 @@ All config is environment variables — see [.env.example](.env.example).
 | `LIGHTTRACE_RETENTION_DAYS` | `30` | Delete traces older than this, checked hourly. `0` keeps forever |
 | `LIGHTTRACE_PRICES` | — | Cost tracking: `{"model": [usd_per_1M_input, usd_per_1M_output]}` inline or a JSON file path. Exact or prefix match on model name |
 | `LIGHTTRACE_HOST` / `LIGHTTRACE_PORT` | `127.0.0.1` / `1984` | Bind address |
+| `LIGHTTRACE_GRPC_PORT` | `0` (off) | OTLP/gRPC port, usually `4317`. Needs `pip install 'lighttrace[grpc]'` |
 | `LIGHTTRACE_COOKIE_SECURE` | `false` | Set `true` behind HTTPS |
 | `LIGHTTRACE_MAX_BODY_MB` | `50` | Max ingest body (after gzip) |
 
@@ -224,9 +234,9 @@ Run payloads are never logged — they usually hold user and business data.
   your app starts, the SDK tries multipart first, gets the 404 once the server is back and switches
   to `/runs/batch` by itself (verified). Traces produced while the server is down are lost — the SDK
   does not buffer to disk.
-- **OTLP over HTTP only**, traces only: no gRPC (port 4317), no `/v1/metrics` or `/v1/logs`. Point
-  the exporter at the HTTP protocol (`http/protobuf` or `http/json`). Span events in the older GenAI
-  style (`gen_ai.user.message` events) are kept as events but not turned into messages.
+- **Traces only.** OTLP logs are read for GenAI content only (other log records are dropped);
+  metrics are dropped. gRPC needs the `grpc` extra and its own port; it has no TLS of its own, so
+  keep it on a private network or behind a TLS proxy.
 - Text search is a `LIKE`/`ILIKE` scan; percentiles and dashboards are computed over the selected
   time window in Python. Fine for hundreds of thousands of traces; at many millions, narrow the
   window or add database-side indexes (e.g. `pg_trgm`).
@@ -240,7 +250,10 @@ Ingest (LangSmith-compatible, `x-api-key`): `GET /info`, `POST /runs/batch`, `PO
 runs go into the key's project, and runs that already belong to another project are left alone.
 
 OpenTelemetry (`x-api-key`, `Authorization: Bearer <key>`, or Basic with the key as password):
-`POST /v1/traces` (also at `/api/public/otel/v1/traces` for the Langfuse SDK), OTLP/HTTP protobuf or JSON.
+`POST /v1/traces` (also at `/api/public/otel/v1/traces` for the Langfuse SDK), `POST /v1/logs`,
+`POST /v1/metrics` (accepted, dropped); OTLP/HTTP protobuf or JSON (ids hex or base64). On
+`LIGHTTRACE_GRPC_PORT`: the OTLP/gRPC `TraceService`, `LogsService` and `MetricsService` with the key in
+`x-api-key` or `authorization` metadata.
 
 UI JSON (session cookie; writes also need the `x-lighttrace: 1` header):
 `GET /api/projects`, `GET /api/projects/{p}/runs?scope=traces|runs&…filters`,

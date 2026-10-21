@@ -1,0 +1,201 @@
+{
+ "resourceSpans": [
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "mlflow"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "3.17.2"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "9e611742-e824-4a62-9e1f-d652e16567aa"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "mlflow-app"
+      }
+     }
+    ]
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "mlflow.tracing.provider"
+     },
+     "spans": [
+      {
+       "traceId": "54e8a7052524b5c1917ea3d6717674a5",
+       "spanId": "c8599689a9fb5fdb",
+       "parentSpanId": "3a9544db99f5cf79",
+       "name": "weather",
+       "kind": 1,
+       "startTimeUnixNano": "1792581716142067000",
+       "endTimeUnixNano": "1792581716142390000",
+       "attributes": [
+        {
+         "key": "mlflow.traceRequestId",
+         "value": {
+          "stringValue": "\"tr-54e8a7052524b5c1917ea3d6717674a5\""
+         }
+        },
+        {
+         "key": "mlflow.spanType",
+         "value": {
+          "stringValue": "\"TOOL\""
+         }
+        },
+        {
+         "key": "mlflow.spanFunctionName",
+         "value": {
+          "stringValue": "\"weather\""
+         }
+        },
+        {
+         "key": "mlflow.spanInputs",
+         "value": {
+          "stringValue": "{\"city\": \"Pune\"}"
+         }
+        },
+        {
+         "key": "mlflow.spanOutputs",
+         "value": {
+          "stringValue": "{\"sky\": \"sunny\"}"
+         }
+        },
+        {
+         "key": "mlflow.spanLogLevel",
+         "value": {
+          "stringValue": "20"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 256
+      },
+      {
+       "traceId": "54e8a7052524b5c1917ea3d6717674a5",
+       "spanId": "8ab8df0d86da2c95",
+       "parentSpanId": "3a9544db99f5cf79",
+       "name": "chat",
+       "kind": 1,
+       "startTimeUnixNano": "1792581716142459000",
+       "endTimeUnixNano": "1792581716142715000",
+       "attributes": [
+        {
+         "key": "mlflow.traceRequestId",
+         "value": {
+          "stringValue": "\"tr-54e8a7052524b5c1917ea3d6717674a5\""
+         }
+        },
+        {
+         "key": "mlflow.spanType",
+         "value": {
+          "stringValue": "\"CHAT_MODEL\""
+         }
+        },
+        {
+         "key": "mlflow.spanFunctionName",
+         "value": {
+          "stringValue": "\"chat\""
+         }
+        },
+        {
+         "key": "mlflow.spanInputs",
+         "value": {
+          "stringValue": "{\"messages\": [{\"role\": \"user\", \"content\": \"Weather in Pune?\"}]}"
+         }
+        },
+        {
+         "key": "mlflow.spanOutputs",
+         "value": {
+          "stringValue": "{\"choices\": [{\"message\": {\"role\": \"assistant\", \"content\": \"It is sunny.\"}}], \"usage\": {\"prompt_tokens\": 9, \"completion_tokens\": 3, \"total_tokens\": 12}}"
+         }
+        },
+        {
+         "key": "mlflow.spanLogLevel",
+         "value": {
+          "stringValue": "20"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 256
+      },
+      {
+       "traceId": "54e8a7052524b5c1917ea3d6717674a5",
+       "spanId": "3a9544db99f5cf79",
+       "name": "agent",
+       "kind": 1,
+       "startTimeUnixNano": "1792581716141665000",
+       "endTimeUnixNano": "1792581716142903000",
+       "attributes": [
+        {
+         "key": "mlflow.traceRequestId",
+         "value": {
+          "stringValue": "\"tr-54e8a7052524b5c1917ea3d6717674a5\""
+         }
+        },
+        {
+         "key": "mlflow.spanType",
+         "value": {
+          "stringValue": "\"AGENT\""
+         }
+        },
+        {
+         "key": "mlflow.spanFunctionName",
+         "value": {
+          "stringValue": "\"agent\""
+         }
+        },
+        {
+         "key": "mlflow.spanInputs",
+         "value": {
+          "stringValue": "{\"q\": \"Weather in Pune?\"}"
+         }
+        },
+        {
+         "key": "mlflow.spanOutputs",
+         "value": {
+          "stringValue": "\"It is sunny.\""
+         }
+        },
+        {
+         "key": "mlflow.spanLogLevel",
+         "value": {
+          "stringValue": "20"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 256
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

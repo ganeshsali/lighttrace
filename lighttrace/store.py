@@ -330,6 +330,15 @@ class Store:
             for col, pick in (("start_time", min), ("end_time", max)):
                 if run.get(col) is not None and cur[col] is not None:
                     run[col] = pick(run[col], cur[col])
+        if run.get("absorb") and run["absorb"] != run_id:  # an OTel root span: take its early log messages
+            early = self.db.q("SELECT inputs, outputs, extra FROM runs WHERE id = ? AND project IS NULL",
+                              (run["absorb"],))
+            if early:
+                self.db.execute("DELETE FROM runs WHERE id = ?", (run["absorb"],))
+                run = {**run, "extra": {**(run.get("extra") or {}), **json.loads(early[0]["extra"] or "{}")}}
+                for col in ("inputs", "outputs"):
+                    if run.get(col) is None and cur[col] is None and early[0][col]:
+                        run[col] = json.loads(early[0][col])
 
         for col in SIMPLE_COLS:
             if run.get(col) is not None:
@@ -362,7 +371,8 @@ class Store:
         if cur.get("run_type") == "llm":
             tokens = extract_tokens(cur["outputs"])
             if tokens[2] is None:  # OTel spans carry usage as attributes, not inside outputs
-                tokens = (run.get("input_tokens"), run.get("output_tokens"), run.get("total_tokens"))
+                tokens = tuple(run[k] if run.get(k) is not None else cur[k]
+                               for k in ("input_tokens", "output_tokens", "total_tokens"))
             cur["input_tokens"], cur["output_tokens"], cur["total_tokens"] = tokens
             cur["model"] = _model(cur["extra"] or {})
 
@@ -380,6 +390,31 @@ class Store:
                 "ON CONFLICT (name) DO UPDATE SET last_activity = excluded.last_activity",
                 (cur["project"], now, now),
             )
+
+    def attach_messages(self, items, project=None):
+        """Messages from OTel GenAI log events (otel.log_messages) onto their span's run. The span may
+        not have arrived yet: then they wait in a project-less row that the span's upsert fills in
+        (a root span absorbs it, see _upsert). Content the span carried itself is never replaced."""
+        now = time.time()
+        with self.db.tx():
+            for it in items:
+                rows = {r["id"]: r for r in self.db.q(
+                    "SELECT id, project, inputs, outputs, extra FROM runs WHERE id IN (?, ?)", (it["id"], it["root"]))}
+                row, root = rows.get(it["id"]), rows.get(it["root"])
+                if not row and root and json.loads(root["extra"] or "{}").get("metadata", {}).get(
+                        "otel.span_id") == it["span"]:
+                    row = root
+                if row and project and row["project"] not in (None, project):
+                    continue
+                extra = json.loads(row["extra"] or "{}") if row else {}
+                done = extra.get("log_messages") or []
+                cur = json.loads(row[it["side"]] or "null") if row else None
+                if cur is not None and it["side"] not in done:
+                    continue
+                upd = {"id": row["id"] if row else it["id"], "trace_id": it["root"],
+                       it["side"]: {"messages": (cur or {}).get("messages", []) + it["messages"]},
+                       "extra": {"log_messages": sorted({*done, it["side"]})}}
+                self._upsert(upd if row else {**upd, "start_time": now}, now)
 
     # ---------- filters ----------
 

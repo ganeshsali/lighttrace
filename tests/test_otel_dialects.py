@@ -135,3 +135,241 @@ lf.shutdown()
 """, LANGFUSE_HOST=url, LANGFUSE_PUBLIC_KEY="pk-anything", LANGFUSE_SECRET_KEY=API_KEY)
     [t] = app.state.store.runs("default", {}, "traces")["items"]
     assert (t["name"], t["run_type"], t["input_preview"], t["output_preview"]) == ("lf-agent", "agent", "hi", "yo")
+
+
+# ---------------------------------------------------------------- transports
+
+def oai2(client, logs_first):
+    """opentelemetry-instrumentation-openai-v2 2.4b0 (+ util-genai 0.4b0), OpenAI SDK against a stub
+    server: prompt/response content comes as log events, each chat span is its own root."""
+    traces, logs = fixture("oai2_traces.json"), fixture("oai2_logs.json")
+    for body, path in ([(logs, "/v1/logs"), (traces, "/v1/traces")] if logs_first else
+                       [(traces, "/v1/traces"), (logs, "/v1/logs")]):
+        post(client, body, path)
+    items = client.get("/api/projects/proj/runs", params={"scope": "traces"}).json()["items"]
+    assert len(items) == 2 and all(t["run_type"] == "llm" and t["total_tokens"] == 16 for t in items)
+    second, first = (client.get(f"/api/traces/{t['id']}").json()["runs"] for t in items)
+    assert [len(r) for r in (first, second)] == [1, 1]  # no leftover placeholder rows
+    return first[0], second[0]
+
+
+def test_genai_log_events_before_and_after_spans(client):
+    for logs_first in (True, False):
+        first, second = oai2(client, logs_first)
+        assert first["inputs"]["messages"] == [{"role": "system", "content": "Be brief."},
+                                               {"role": "user", "content": "Weather in Pune?"}]
+        assert first["outputs"]["messages"] == [{"role": "assistant", "content": None, "tool_calls": [
+            {"name": "weather", "id": "call_1", "args": {"city": "Pune"}}]}]
+        assert second["inputs"]["messages"][2]["tool_calls"][0]["id"] == "call_1"
+        assert second["inputs"]["messages"][3] == {"role": "tool", "content": "sunny", "tool_call_id": "call_1"}
+        assert second["outputs"]["messages"] == [{"role": "assistant", "content": "Hello from the stub."}]
+        client.delete("/api/projects/proj")
+
+
+def test_genai_span_events_and_child_log_events(client):
+    """Documented shapes (no real payload): new-style events on a span, old-style gen_ai.content.*
+    events, and a log event for a child span that arrives before the span."""
+    root, child, old = "2000000000000001", "2000000000000002", "2000000000000003"
+    ev = lambda name, **attrs: {"name": name, "timeUnixNano": "1", "attributes": [kv(k, v) for k, v in attrs.items()]}
+    log = {"resourceLogs": [{"resource": {"attributes": [kv("service.name", "svc")]}, "scopeLogs": [{"logRecords": [
+        {"eventName": "gen_ai.user.message", "traceId": TRACE, "spanId": child, "body": {"kvlistValue": {"values": [
+            kv("content", "from a log")]}}},
+        {"attributes": [kv("event.name", "gen_ai.choice")], "traceId": TRACE, "spanId": child,
+         "body": {"kvlistValue": {"values": [{"key": "message", "value": {"kvlistValue": {"values": [
+             kv("content", "answer")]}}}]}}},
+        {"eventName": "something.else", "traceId": TRACE, "spanId": child, "body": {"stringValue": "ignored"}}]}]}]}
+    post(client, log, "/v1/logs")
+    post(client, {"resourceSpans": [resource("svc", [
+        span(root, "", "root", 0, 10, {}),
+        span(child, root, "chat", 1, 5, {"gen_ai.operation.name": "chat"}),
+        span(old, root, "completion", 6, 9, {"gen_ai.operation.name": "chat"}, events=[
+            ev("gen_ai.content.prompt", **{"gen_ai.prompt": json.dumps([{"role": "user", "content": "old q"}])}),
+            ev("gen_ai.content.completion", **{"gen_ai.completion": "old a"})])])]})
+    _, runs = only_trace(client)
+    by = {r["name"]: r for r in runs}
+    assert by["chat"]["inputs"] == {"messages": [{"role": "user", "content": "from a log"}]}
+    assert by["chat"]["outputs"] == {"messages": [{"role": "assistant", "content": "answer"}]}
+    assert by["completion"]["inputs"] == {"messages": [{"role": "user", "content": "old q"}]}
+    assert by["completion"]["outputs"] == {"messages": [{"role": "assistant", "content": "old a"}]}
+
+
+def test_otlp_json_base64_ids_and_metrics(client):
+    """OTLP/JSON with base64 ids (what protobuf-to-JSON gives) is detected; /v1/metrics is accepted and dropped."""
+    import base64
+    b64 = lambda h: base64.b64encode(bytes.fromhex(h)).decode()
+    s = span(b64("3000000000000001"), "", "b64-root", 0, 1, {})
+    s["traceId"] = b64(TRACE)
+    post(client, {"resourceSpans": [resource("svc", [s])]})
+    t, _ = only_trace(client)
+    assert t["name"] == "b64-root" and t["metadata"]["otel.trace_id"] == TRACE
+    assert t["metadata"]["otel.span_id"] == "3000000000000001"
+    post(client, {"resourceMetrics": []}, "/v1/metrics")
+    r = client.post("/v1/metrics", content=b"", headers={**H, "content-type": "application/x-protobuf"})
+    assert r.status_code == 200 and r.content == b""
+    assert client.post("/v1/metrics", json={}).status_code == 401
+
+
+def test_otlp_grpc(db_target):
+    """The real OTLP/gRPC exporters (spans + logs) against LIGHTTRACE_GRPC_PORT, incl. a project key."""
+    pytest.importorskip("grpc")
+    grpc_exp = pytest.importorskip("opentelemetry.exporter.otlp.proto.grpc.trace_exporter")
+    import socket
+
+    from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
+    from opentelemetry._logs import LogRecord
+    from opentelemetry.sdk._logs import LoggerProvider
+    from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+
+    from conftest import make_settings
+    from lighttrace.app import create_app
+
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+    app = create_app(make_settings(db_target, grpc_port=port))
+    try:
+        key = app.state.store.create_key("grpc-proj", "k")["key"]
+        res = Resource.create({"service.name": "ignored"})
+        tp = TracerProvider(resource=res)
+        tp.add_span_processor(SimpleSpanProcessor(grpc_exp.OTLPSpanExporter(
+            endpoint=f"127.0.0.1:{port}", insecure=True, headers={"x-api-key": key})))
+        with tp.get_tracer("t").start_as_current_span("grpc-root", attributes={"gen_ai.operation.name": "chat"}) as sp:
+            ctx = sp.get_span_context()
+        tp.shutdown()
+        lp = LoggerProvider(resource=res)
+        lp.add_log_record_processor(SimpleLogRecordProcessor(OTLPLogExporter(
+            endpoint=f"127.0.0.1:{port}", insecure=True, headers={"authorization": f"Bearer {key}"})))
+        lp.get_logger("t").emit(LogRecord(trace_id=ctx.trace_id, span_id=ctx.span_id, body={"content": "hi"},
+                                          event_name="gen_ai.user.message"))
+        lp.shutdown()
+        bad = TracerProvider()
+        bad.add_span_processor(SimpleSpanProcessor(grpc_exp.OTLPSpanExporter(
+            endpoint=f"127.0.0.1:{port}", insecure=True, headers={"x-api-key": "nope"})))
+        bad.get_tracer("t").start_span("rejected").end()
+        bad.shutdown()
+        [t] = app.state.store.runs("grpc-proj", {}, "traces")["items"]
+        assert t["name"] == "grpc-root" and t["input_preview"] == "hi"
+        assert [p["name"] for p in app.state.store.projects(0)] == ["grpc-proj"]
+    finally:
+        app.state.grpc.stop(0)
+
+
+# ---------------------------------------------------------------- dialects (real payloads, see FIX)
+
+def dialect(client, name):
+    """Post tests/fixtures/<name>_logs.json (if any) and <name>_traces.json; return {run name: run}
+    of the one trace, plus the trace list item."""
+    if (FIX / f"{name}_logs.json").exists():
+        post(client, fixture(f"{name}_logs.json"), "/v1/logs")
+    post(client, fixture(f"{name}_traces.json"))
+    t, runs = only_trace(client)
+    return t, {r["name"]: r for r in runs}
+
+
+def test_openllmetry(client):
+    """traceloop-sdk 0.62.4 (@workflow + @task around an OpenAI call to a stub server)."""
+    t, runs = dialect(client, "openllmetry")
+    assert (t["name"], t["input_preview"], t["output_preview"], t["total_tokens"]) == (
+        "qa.workflow", "Weather in Pune?", "Hello from the stub.", 16)
+    chat = runs["openai.chat"]
+    assert chat["run_type"] == "llm" and chat["model"] == "gpt-4o-mini" and chat["total_tokens"] == 16
+    assert chat["inputs"]["messages"][1] == {"role": "user", "content": "Weather in Pune?"}
+    assert runs["ask.task"]["inputs"] == {"input": "Weather in Pune?"}
+
+
+def test_openlit(client):
+    """openlit 1.45.0 with OpenAI against a stub server: content as span attributes and in a
+    gen_ai.client.inference.operation.details log (the span's own content wins, no duplicates)."""
+    t, runs = dialect(client, "openlit")
+    chat = runs["chat gpt-4o-mini"]
+    assert chat["inputs"]["messages"] == [{"role": "system", "content": "Be brief."},
+                                          {"role": "user", "content": "Weather in Pune?"}]
+    assert chat["outputs"]["messages"] == [{"role": "assistant", "content": "Hello from the stub."}]
+    assert chat["total_tokens"] == 16 and chat["extra"]["metadata"]["gen_ai.usage.cost"] > 0  # unmapped stays
+
+
+def test_openlit_operation_details_log_alone(client):
+    """Documented: with content only in the log (no span attributes), the log fills the span."""
+    body = fixture("openlit_traces.json")
+    for rs in body["resourceSpans"]:
+        for ss in rs["scopeSpans"]:
+            for s in ss["spans"]:
+                s["attributes"] = [x for x in s["attributes"] if "messages" not in x["key"]
+                                   and "instructions" not in x["key"]]
+    post(client, body)
+    post(client, fixture("openlit_logs.json"), "/v1/logs")
+    _, runs = only_trace(client)
+    assert runs[0]["outputs"]["messages"] == [{"role": "assistant", "content": "Hello from the stub."}]
+    assert runs[0]["inputs"]["messages"][1]["content"] == "Weather in Pune?"
+
+
+def test_langsmith_otel_mode(client):
+    """langsmith 0.14 with LANGSMITH_OTEL_ENABLED + LANGSMITH_OTEL_ONLY (@traceable + a fake chat model)."""
+    t, runs = dialect(client, "langsmith_otel")
+    assert t["thread_id"] == "t-ls" and t["tags"] == ["prod"] and t["output_preview"] == "It is sunny."
+    assert runs["weather_tool"]["run_type"] == "tool" and runs["weather_tool"]["outputs"] == {"sky": "sunny"}
+    llm = runs["GenericFakeChatModel"]
+    assert llm["run_type"] == "llm" and llm["total_tokens"] == 12
+    assert llm["inputs"]["messages"][0][0]["kwargs"]["content"] == "Weather in Pune?"  # LangChain-serialized
+    assert llm["extra"]["metadata"]["ls_provider"] == "genericfakechatmodel"
+
+
+def test_mlflow(client):
+    """mlflow-tracing 3.17 OTLP export (@mlflow.trace with AGENT / TOOL / CHAT_MODEL span types)."""
+    t, runs = dialect(client, "mlflow")
+    assert t["run_type"] == "agent" and t["output_preview"] == "It is sunny." and t["total_tokens"] == 12
+    assert runs["weather"]["run_type"] == "tool" and runs["weather"]["inputs"] == {"city": "Pune"}
+    chat = runs["chat"]
+    assert chat["run_type"] == "llm" and (chat["input_tokens"], chat["output_tokens"]) == (9, 3)
+    assert chat["inputs"] == {"messages": [{"role": "user", "content": "Weather in Pune?"}]}
+
+
+def test_google_adk(client):
+    """google-adk 2.12 LlmAgent with a fake BaseLlm and one function tool. Content sits on call_llm,
+    tokens on its generate_content child (the llm run), so they are counted once."""
+    t, runs = dialect(client, "google_adk")
+    assert t["name"] == "invocation" and t["total_tokens"] == 28
+    assert runs["invoke_agent weather_agent"]["run_type"] == "agent"
+    call = next(r for r in client.get(f"/api/traces/{t['id']}").json()["runs"]
+                if r["name"] == "call_llm" and "tool_calls" in r["outputs"]["messages"][0])
+    assert call["inputs"]["messages"][0]["role"] == "system"
+    assert call["inputs"]["messages"][1] == {"role": "user", "content": "Weather in Pune?"}
+    assert call["outputs"]["messages"][0]["tool_calls"] == [{"name": "weather", "id": None, "args": {"city": "Pune"}}]
+    tool = runs["execute_tool weather"]
+    assert tool["run_type"] == "tool" and tool["inputs"] == {"city": "Pune"} and tool["outputs"] == {"sky": "sunny"}
+
+
+def pydantic_ai_checks(t, runs, tool_name):
+    assert t["run_type"] == "agent" and t["total_tokens"] == 127
+    assert t["input_preview"] == "Weather in Pune?" and t["output_preview"] == '{"weather": "sunny"}'
+    chats = [r for r in runs.values() if r["run_type"] == "llm"]
+    assert chats and all(r["model"] == "test" for r in chats)
+    assert runs[tool_name]["run_type"] == "tool" and runs[tool_name]["outputs"] == {"output": "sunny"}
+
+
+def test_pydantic_ai(client):
+    """pydantic-ai-slim 2.59 TestModel, instrumentation version 2 (no Logfire)."""
+    pydantic_ai_checks(*dialect(client, "pydantic_ai_v2"), "running tool")
+
+
+def test_pydantic_ai_logfire(client):
+    """Same agent through logfire 5.2 (default instrumentation version): logfire.* attributes stay
+    in metadata, and logfire.json_schema decodes the JSON-valued ones."""
+    t, runs = dialect(client, "pydantic_ai_logfire")
+    pydantic_ai_checks(t, runs, "execute_tool weather")
+    meta = runs["invoke_agent agent"]["extra"]["metadata"]
+    assert meta["logfire.msg"] == "agent run" and isinstance(meta["logfire.metrics"], str)
+    assert isinstance(runs["chat test"]["extra"]["metadata"]["model_request_parameters"], dict)
+
+
+def test_pydantic_ai_0_4_events(client):
+    """pydantic-ai-slim 0.4.11 (instrumentation v1, event_mode="attributes"): messages as GenAI events in
+    the `events` / `all_messages_events` attributes."""
+    t, runs = dialect(client, "pydantic_ai_0.4")
+    pydantic_ai_checks(t, runs, "running tool")
+    chat = next(r for r in runs.values() if r["run_type"] == "llm")
+    assert chat["inputs"]["messages"][1] == {"role": "user", "content": "Weather in Pune?"}
+    assert "events" not in chat["extra"]["metadata"]

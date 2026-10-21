@@ -1,0 +1,375 @@
+{
+ "resourceSpans": [
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "ls-app"
+      }
+     },
+     {
+      "key": "langsmith.internal_provider",
+      "value": {
+       "boolValue": true
+      }
+     }
+    ]
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "langsmith"
+     },
+     "spans": [
+      {
+       "traceId": "7b3e73c228632857a40f379a9b905b15",
+       "spanId": "5cda1ed25d86c117",
+       "name": "agent",
+       "kind": 1,
+       "startTimeUnixNano": "1792581527209649152",
+       "endTimeUnixNano": "1792581527751940096",
+       "attributes": [
+        {
+         "key": "langsmith.span.kind",
+         "value": {
+          "stringValue": "chain"
+         }
+        },
+        {
+         "key": "langsmith.trace.name",
+         "value": {
+          "stringValue": "agent"
+         }
+        },
+        {
+         "key": "langsmith.trace.session_name",
+         "value": {
+          "stringValue": "default"
+         }
+        },
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chain"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "langchain"
+         }
+        },
+        {
+         "key": "langsmith.metadata.thread_id",
+         "value": {
+          "stringValue": "t-ls"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_method",
+         "value": {
+          "stringValue": "traceable"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ENABLED",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ONLY",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_TRACING",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.span.tags",
+         "value": {
+          "stringValue": "prod"
+         }
+        },
+        {
+         "key": "gen_ai.prompt",
+         "value": {
+          "stringValue": "{\"q\":\"Weather in Pune?\"}"
+         }
+        },
+        {
+         "key": "gen_ai.completion",
+         "value": {
+          "stringValue": "{\"output\":\"It is sunny.\"}"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 256
+      },
+      {
+       "traceId": "7b3e73c228632857a40f379a9b905b15",
+       "spanId": "c06542d18a2d9cde",
+       "parentSpanId": "5cda1ed25d86c117",
+       "name": "weather_tool",
+       "kind": 1,
+       "startTimeUnixNano": "1792581527746723840",
+       "endTimeUnixNano": "1792581527747292928",
+       "attributes": [
+        {
+         "key": "langsmith.span.kind",
+         "value": {
+          "stringValue": "tool"
+         }
+        },
+        {
+         "key": "langsmith.trace.name",
+         "value": {
+          "stringValue": "weather_tool"
+         }
+        },
+        {
+         "key": "langsmith.trace.session_name",
+         "value": {
+          "stringValue": "default"
+         }
+        },
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "execute_tool"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "langchain"
+         }
+        },
+        {
+         "key": "gen_ai.tool.name",
+         "value": {
+          "stringValue": "weather_tool"
+         }
+        },
+        {
+         "key": "langsmith.metadata.thread_id",
+         "value": {
+          "stringValue": "t-ls"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_method",
+         "value": {
+          "stringValue": "traceable"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ENABLED",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ONLY",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_TRACING",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.span.tags",
+         "value": {
+          "stringValue": "prod"
+         }
+        },
+        {
+         "key": "gen_ai.prompt",
+         "value": {
+          "stringValue": "{\"city\":\"Pune\"}"
+         }
+        },
+        {
+         "key": "gen_ai.completion",
+         "value": {
+          "stringValue": "{\"sky\":\"sunny\"}"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 256
+      },
+      {
+       "traceId": "7b3e73c228632857a40f379a9b905b15",
+       "spanId": "92895ff69d9e4309",
+       "parentSpanId": "5cda1ed25d86c117",
+       "name": "GenericFakeChatModel",
+       "kind": 1,
+       "startTimeUnixNano": "1792581527750031104",
+       "endTimeUnixNano": "1792581527751683840",
+       "attributes": [
+        {
+         "key": "langsmith.span.kind",
+         "value": {
+          "stringValue": "llm"
+         }
+        },
+        {
+         "key": "langsmith.trace.name",
+         "value": {
+          "stringValue": "GenericFakeChatModel"
+         }
+        },
+        {
+         "key": "langsmith.trace.session_name",
+         "value": {
+          "stringValue": "default"
+         }
+        },
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chat"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "langchain"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_provider",
+         "value": {
+          "stringValue": "genericfakechatmodel"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_model_type",
+         "value": {
+          "stringValue": "chat"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_integration",
+         "value": {
+          "stringValue": "langchain_chat_model"
+         }
+        },
+        {
+         "key": "langsmith.metadata.lc_versions",
+         "value": {
+          "stringValue": "{\"langchain-core\":\"1.6.12\"}"
+         }
+        },
+        {
+         "key": "langsmith.metadata.thread_id",
+         "value": {
+          "stringValue": "t-ls"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_method",
+         "value": {
+          "stringValue": "traceable"
+         }
+        },
+        {
+         "key": "langsmith.metadata._type",
+         "value": {
+          "stringValue": "generic-fake-chat-model"
+         }
+        },
+        {
+         "key": "langsmith.metadata.usage_metadata",
+         "value": {
+          "stringValue": "{\"input_tokens\":9,\"output_tokens\":3,\"total_tokens\":12}"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ENABLED",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ONLY",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_TRACING",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.span.tags",
+         "value": {
+          "stringValue": "prod"
+         }
+        },
+        {
+         "key": "gen_ai.serialized.name",
+         "value": {
+          "stringValue": "GenericFakeChatModel"
+         }
+        },
+        {
+         "key": "gen_ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[[{\"lc\":1,\"type\":\"constructor\",\"id\":[\"langchain\",\"schema\",\"messages\",\"HumanMessage\"],\"kwargs\":{\"content\":\"Weather in Pune?\",\"type\":\"human\"}}]]}"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": "9"
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": "3"
+         }
+        },
+        {
+         "key": "gen_ai.usage.total_tokens",
+         "value": {
+          "intValue": "12"
+         }
+        },
+        {
+         "key": "gen_ai.completion",
+         "value": {
+          "stringValue": "{\"generations\":[[{\"text\":\"It is sunny.\",\"generation_info\":null,\"type\":\"ChatGeneration\",\"message\":{\"lc\":1,\"type\":\"constructor\",\"id\":[\"langchain\",\"schema\",\"messages\",\"AIMessage\"],\"kwargs\":{\"content\":\"It is sunny.\",\"type\":\"ai\",\"id\":\"lc_run--01a15e2f-68c6-7741-b004-a89dad762474-0\",\"usage_metadata\":{\"input_tokens\":9,\"output_tokens\":3,\"total_tokens\":12},\"tool_calls\":[],\"invalid_tool_calls\":[]}}}]],\"llm_output\":null,\"run\":null,\"type\":\"LLMResult\"}"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 256
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

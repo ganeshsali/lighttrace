@@ -50,6 +50,8 @@ class Settings:
     max_body_mb: float = field(default_factory=lambda: float(os.environ.get("LIGHTTRACE_MAX_BODY_MB", "50")))
     host: str = field(default_factory=lambda: os.environ.get("LIGHTTRACE_HOST", "127.0.0.1"))
     port: int = field(default_factory=lambda: int(os.environ.get("LIGHTTRACE_PORT", "1984")))
+    # OTLP/gRPC port (4317 is the usual one); 0 = off. Needs pip install 'lighttrace[grpc]'.
+    grpc_port: int = field(default_factory=lambda: int(os.environ.get("LIGHTTRACE_GRPC_PORT", "0")))
     prices: dict = field(default_factory=lambda: _load_prices(os.environ.get("LIGHTTRACE_PRICES", "")))
 
     def validate(self):
@@ -239,11 +241,22 @@ def create_app(settings=None):
         warn_once("multipart", "SDK used /runs/multipart; lighttrace only supports /runs/batch (it will fall back)")
         raise HTTPException(404, "multipart ingest not supported")
 
-    @app.post("/v1/traces")
-    @app.post("/api/public/otel/v1/traces")  # where the Langfuse SDK sends (LANGFUSE_HOST)
-    async def otlp_traces(request: Request):
-        """OTLP/HTTP (protobuf or JSON). Project: the project key's, else the x-lighttrace-project
-        header, else service.name."""
+    def otlp_ingest(kind, req, project, header_project):
+        """One OTLP export (traces | logs | metrics) as a JSON-style dict, from HTTP or gRPC.
+        Project: the project key's, else the x-lighttrace-project header, else service.name.
+        Raises ValueError for a payload that does not convert."""
+        if kind == "metrics":
+            warn_once("metrics", "ignoring OTLP metrics (lighttrace stores traces only); "
+                                 "set OTEL_METRICS_EXPORTER=none in the app to stop sending them")
+            return
+        try:
+            data = otel.to_runs(req, project or header_project) if kind == "traces" else otel.log_messages(req)
+        except Exception as e:  # untrusted payload: any shape error is the sender's
+            warn_once(("otlp-bad", type(e).__name__), "rejected OTLP payload: %s", type(e).__name__)
+            raise ValueError
+        (store.upsert_runs if kind == "traces" else store.attach_messages)(data, project)
+
+    async def otlp_http(request, kind):
         project = check_key(request)
         body = await read_body(request)
         ctype = (request.headers.get("content-type") or "").lower()
@@ -251,15 +264,38 @@ def create_app(settings=None):
             warn_once(("otlp-ctype", ctype.split(";")[0]), "unsupported OTLP Content-Type %r", ctype)
             raise HTTPException(415, "expected application/x-protobuf or application/json")
         try:
-            req, b64 = otel.parse(body, ctype)
-            runs = otel.to_runs(req, b64, project or request.headers.get("x-lighttrace-project"))
-        except Exception as e:  # untrusted payload: any shape error is the sender's
+            req = otel.parse(body, ctype, kind) if kind != "metrics" else None
+        except Exception as e:  # untrusted payload
             warn_once(("otlp-bad", type(e).__name__), "rejected OTLP payload: %s", type(e).__name__)
             raise HTTPException(400, "invalid OTLP payload")
-        store.upsert_runs(runs, project)
-        if "protobuf" in ctype:  # an empty ExportTraceServiceResponse
+        try:
+            otlp_ingest(kind, req, project, request.headers.get("x-lighttrace-project"))
+        except ValueError:
+            raise HTTPException(400, "invalid OTLP payload")
+        if "protobuf" in ctype:  # an empty Export*ServiceResponse
             return Response(b"", media_type="application/x-protobuf")
         return {}
+
+    @app.post("/v1/traces")
+    @app.post("/api/public/otel/v1/traces")  # where the Langfuse SDK sends (LANGFUSE_HOST)
+    async def otlp_traces(request: Request):
+        return await otlp_http(request, "traces")
+
+    @app.post("/v1/logs")
+    async def otlp_logs(request: Request):
+        """Only GenAI events (prompt/response content) are kept, on their span's run."""
+        return await otlp_http(request, "logs")
+
+    @app.post("/v1/metrics")
+    async def otlp_metrics(request: Request):
+        return await otlp_http(request, "metrics")
+
+    if settings.grpc_port:
+        try:
+            import grpc  # noqa: F401
+        except ImportError:
+            raise SystemExit("lighttrace: LIGHTTRACE_GRPC_PORT needs grpcio: pip install 'lighttrace[grpc]'")
+        app.state.grpc = otel.serve_grpc(settings.host, settings.grpc_port, max_body, key_project, otlp_ingest)
 
     # ---------- UI auth ----------
 
@@ -455,7 +491,8 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     app = create_app(s)
     where = "postgres" if s.db_path.startswith(("postgres://", "postgresql://")) else s.db_path
-    log.info("lighttrace %s on http://%s:%d (db: %s, retention: %s)", __version__, s.host, s.port, where,
+    log.info("lighttrace %s on http://%s:%d%s (db: %s, retention: %s)", __version__, s.host, s.port,
+             f", OTLP/gRPC on {s.grpc_port}" if s.grpc_port else "", where,
              f"{s.retention_days:g} days" if s.retention_days > 0 else "forever")
     # access_log off: keep logs quiet; payloads are never logged anywhere.
     uvicorn.run(app, host=s.host, port=s.port, access_log=False, proxy_headers=True)

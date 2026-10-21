@@ -1,0 +1,343 @@
+{
+ "resourceLogs": [
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "openlit"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "6828a635-00f7-484e-a555-afb15a4076dd"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "openlit-app"
+      }
+     },
+     {
+      "key": "deployment.environment",
+      "value": {
+       "stringValue": "default"
+      }
+     }
+    ]
+   },
+   "scopeLogs": [
+    {
+     "scope": {
+      "name": "openlit.instrumentation.openai"
+     },
+     "logRecords": [
+      {
+       "body": {
+        "stringValue": ""
+       },
+       "attributes": [
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chat"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "gpt-4o-mini"
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "gpt-4o-mini"
+         }
+        },
+        {
+         "key": "server.address",
+         "value": {
+          "stringValue": "127.0.0.1"
+         }
+        },
+        {
+         "key": "server.port",
+         "value": {
+          "intValue": "19850"
+         }
+        },
+        {
+         "key": "gen_ai.input.messages",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "kvlistValue": {
+              "values": [
+               {
+                "key": "role",
+                "value": {
+                 "stringValue": "system"
+                }
+               },
+               {
+                "key": "parts",
+                "value": {
+                 "arrayValue": {
+                  "values": [
+                   {
+                    "kvlistValue": {
+                     "values": [
+                      {
+                       "key": "type",
+                       "value": {
+                        "stringValue": "text"
+                       }
+                      },
+                      {
+                       "key": "content",
+                       "value": {
+                        "stringValue": "Be brief."
+                       }
+                      }
+                     ]
+                    }
+                   }
+                  ]
+                 }
+                }
+               }
+              ]
+             }
+            },
+            {
+             "kvlistValue": {
+              "values": [
+               {
+                "key": "role",
+                "value": {
+                 "stringValue": "user"
+                }
+               },
+               {
+                "key": "parts",
+                "value": {
+                 "arrayValue": {
+                  "values": [
+                   {
+                    "kvlistValue": {
+                     "values": [
+                      {
+                       "key": "type",
+                       "value": {
+                        "stringValue": "text"
+                       }
+                      },
+                      {
+                       "key": "content",
+                       "value": {
+                        "stringValue": "Weather in Pune?"
+                       }
+                      }
+                     ]
+                    }
+                   }
+                  ]
+                 }
+                }
+               }
+              ]
+             }
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.output.messages",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "kvlistValue": {
+              "values": [
+               {
+                "key": "role",
+                "value": {
+                 "stringValue": "assistant"
+                }
+               },
+               {
+                "key": "parts",
+                "value": {
+                 "arrayValue": {
+                  "values": [
+                   {
+                    "kvlistValue": {
+                     "values": [
+                      {
+                       "key": "type",
+                       "value": {
+                        "stringValue": "text"
+                       }
+                      },
+                      {
+                       "key": "content",
+                       "value": {
+                        "stringValue": "Hello from the stub."
+                       }
+                      }
+                     ]
+                    }
+                   }
+                  ]
+                 }
+                }
+               },
+               {
+                "key": "finish_reason",
+                "value": {
+                 "stringValue": "stop"
+                }
+               }
+              ]
+             }
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.response.id",
+         "value": {
+          "stringValue": "chatcmpl-1"
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "stop"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.output.type",
+         "value": {
+          "stringValue": "text"
+         }
+        },
+        {
+         "key": "gen_ai.request.temperature",
+         "value": {
+          "doubleValue": 1.0
+         }
+        },
+        {
+         "key": "gen_ai.request.top_p",
+         "value": {
+          "doubleValue": 1.0
+         }
+        },
+        {
+         "key": "gen_ai.request.frequency_penalty",
+         "value": {
+          "doubleValue": 0.0
+         }
+        },
+        {
+         "key": "gen_ai.request.presence_penalty",
+         "value": {
+          "doubleValue": 0.0
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": "11"
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": "5"
+         }
+        },
+        {
+         "key": "gen_ai.usage.cache_read.input_tokens",
+         "value": {
+          "intValue": "0"
+         }
+        },
+        {
+         "key": "gen_ai.usage.cache_creation.input_tokens",
+         "value": {
+          "intValue": "0"
+         }
+        },
+        {
+         "key": "openlit.agent.version_hash",
+         "value": {
+          "stringValue": "a03a0316d9df3dc5"
+         }
+        },
+        {
+         "key": "gen_ai.system_instructions",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "kvlistValue": {
+              "values": [
+               {
+                "key": "type",
+                "value": {
+                 "stringValue": "text"
+                }
+               },
+               {
+                "key": "content",
+                "value": {
+                 "stringValue": "Be brief."
+                }
+               }
+              ]
+             }
+            }
+           ]
+          }
+         }
+        }
+       ],
+       "flags": 3,
+       "traceId": "b2fcd67f3a1cf096503451b1cf07d509",
+       "spanId": "fa80a3fb0e3669f6",
+       "observedTimeUnixNano": "1792581498431967000",
+       "eventName": "gen_ai.client.inference.operation.details"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
