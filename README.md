@@ -8,7 +8,7 @@ It also accepts **OpenTelemetry (OTLP/HTTP)**, so apps on other frameworks or la
 - One Python process (FastAPI). Storage in **SQLite** (one file, default) or **Postgres**.
   ~50–100 MB RAM; runs comfortably on a 2 CPU / 4 GB box.
 - Keep traces for N days or **forever** (`LIGHTTRACE_RETENTION_DAYS=0`).
-- Ingest protected by API keys, UI by a password. Binds `127.0.0.1` by default.
+- Ingest protected by API keys (per project, created in the UI), UI by a password. Binds `127.0.0.1` by default.
 - No frontend build step: plain HTML/CSS/JS served by the same process.
 
 lighttrace is an independent project, not affiliated with or endorsed by LangChain, Inc.
@@ -59,9 +59,20 @@ In the app you want to trace (any LangChain / LangGraph app; it already has the 
 ```
 LANGSMITH_TRACING=true
 LANGSMITH_ENDPOINT=http://<lighttrace-host>:1984
-LANGSMITH_API_KEY=<one of LIGHTTRACE_API_KEYS>
+LANGSMITH_API_KEY=<a project key from the UI, or one of LIGHTTRACE_API_KEYS>
 LANGSMITH_PROJECT=myapp-prod
 ```
+
+### API keys
+
+Each project has a **Keys** tab: create a key (it is shown once, copy it then), see when each key was
+last used, revoke it. A project key can only write to its own project: whatever project name the app
+sends (`LANGSMITH_PROJECT`, `x-lighttrace-project`, `service.name`) is ignored and its traces land in
+the key's project. To start a new project, use **+ New project** on the projects page.
+Only a SHA-256 hash and the first 10 characters of each key are stored.
+
+Keys in `LIGHTTRACE_API_KEYS` are **admin keys**: they write to any project, chosen by the app as
+before. Keep them for yourself; give each app or team a project key.
 
 The root run id shown in the UI is the same id LangSmith would have given you, so code that stores
 `run_id` keeps working. To group turns into threads, put `thread_id` (or `session_id` /
@@ -79,11 +90,12 @@ JSON, optionally gzip). For example, LlamaIndex, CrewAI, the raw OpenAI SDK, or 
 ```
 OTEL_EXPORTER_OTLP_ENDPOINT=http://<lighttrace-host>:1984
 OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<one of LIGHTTRACE_API_KEYS>,x-lighttrace-project=myapp-prod
+OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<project key>
 ```
 
-The project comes from the `x-lighttrace-project` header, else the `service.name` resource attribute
-(`OTEL_SERVICE_NAME`), else `default`. Spans are understood in these conventions:
+With a project key the project is the key's. With an admin key it comes from the
+`x-lighttrace-project` header, else the `service.name` resource attribute (`OTEL_SERVICE_NAME`), else
+`default`. Spans are understood in these conventions:
 
 | Convention (typical instrumentor) | Mapped |
 |---|---|
@@ -103,7 +115,7 @@ For a LangChain app, the LangSmith route above gives richer traces; OTel is for 
 ```bash
 pip install .                       # SQLite only
 pip install '.[postgres]'           # with Postgres support
-cp .env.example .env                # then set LIGHTTRACE_API_KEYS and LIGHTTRACE_PASSWORD
+cp .env.example .env                # then set LIGHTTRACE_PASSWORD
 lighttrace                          # http://127.0.0.1:1984  (--host, --port, --db override)
 ```
 
@@ -139,7 +151,7 @@ All config is environment variables — see [.env.example](.env.example).
 
 | Variable | Default | |
 |---|---|---|
-| `LIGHTTRACE_API_KEYS` | — (required) | Comma-separated ingest keys, checked against the SDK's `x-api-key` header. Use one per app/environment so you can revoke one |
+| `LIGHTTRACE_API_KEYS` | — | Comma-separated **admin** ingest keys: may write to any project. Optional; per-project keys are created in the UI |
 | `LIGHTTRACE_PASSWORD` | — (required) | UI admin password. Changing it logs everyone out |
 | `LIGHTTRACE_DB` | `lighttrace.db` | SQLite file path, or `postgresql://…` URL |
 | `LIGHTTRACE_RETENTION_DAYS` | `30` | Delete traces older than this, checked hourly. `0` keeps forever |
@@ -148,8 +160,8 @@ All config is environment variables — see [.env.example](.env.example).
 | `LIGHTTRACE_COOKIE_SECURE` | `false` | Set `true` behind HTTPS |
 | `LIGHTTRACE_MAX_BODY_MB` | `50` | Max ingest body (after gzip) |
 
-Several apps or environments share one server by using different `LANGSMITH_PROJECT` names
-(e.g. `myapp-staging`, `myapp-prod`); projects are created on first trace.
+Several apps or environments share one server as separate projects (e.g. `myapp-staging`,
+`myapp-prod`), each with its own keys. With an admin key, projects are created on first trace.
 
 ## HTTPS with Caddy
 
@@ -205,13 +217,14 @@ Run payloads are never logged — they usually hold user and business data.
 - Text search is a `LIKE`/`ILIKE` scan; percentiles and dashboards are computed over the selected
   time window in Python. Fine for hundreds of thousands of traces; at many millions, narrow the
   window or add database-side indexes (e.g. `pg_trgm`).
-- Single admin password, no users/roles. Anyone who can log in sees every project.
+- Single admin password, no users/roles. Anyone who can log in sees every project and can create keys.
 - Verified against `langsmith` 0.14.x (what `langchain-core` 1.x installs).
 
 ## API
 
 Ingest (LangSmith-compatible, `x-api-key`): `GET /info`, `POST /runs/batch`, `POST /runs`,
-`PATCH /runs/{id}`. A patch may arrive before its post; both merge into one row.
+`PATCH /runs/{id}`. A patch may arrive before its post; both merge into one row. With a project key,
+runs go into the key's project, and runs that already belong to another project are left alone.
 
 OpenTelemetry (`x-api-key` or `Authorization: Bearer`): `POST /v1/traces`, OTLP/HTTP protobuf or JSON.
 
@@ -219,7 +232,9 @@ UI JSON (session cookie; writes also need the `x-lighttrace: 1` header):
 `GET /api/projects`, `GET /api/projects/{p}/runs?scope=traces|runs&…filters`,
 `GET /api/projects/{p}/threads`, `GET /api/projects/{p}/thread?id=…`,
 `GET /api/projects/{p}/stats`, `GET /api/projects/{p}/dashboard?since=&until=`,
-`GET|POST /api/projects/{p}/filters`, `GET|DELETE /api/traces/{trace_id}`, `DELETE /api/projects/{p}`.
+`GET|POST /api/projects/{p}/filters`, `GET|DELETE /api/traces/{trace_id}`, `DELETE /api/projects/{p}`
+(also deletes its keys), `GET|POST /api/projects/{p}/keys` (POST `{"name"}` returns the full key once),
+`DELETE /api/keys/{id}`.
 Filters: `since, until, status, q, name, run_type, tag, meta=key:value (repeatable), min_latency,
 max_latency, min_tokens`.
 

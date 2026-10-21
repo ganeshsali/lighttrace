@@ -52,8 +52,6 @@ class Settings:
     prices: dict = field(default_factory=lambda: _load_prices(os.environ.get("LIGHTTRACE_PRICES", "")))
 
     def validate(self):
-        if not self.api_keys:
-            raise SystemExit("lighttrace: set LIGHTTRACE_API_KEYS (comma-separated ingest keys)")
         if not self.password:
             raise SystemExit("lighttrace: set LIGHTTRACE_PASSWORD (UI admin password)")
 
@@ -145,12 +143,26 @@ def create_app(settings=None):
 
     # ---------- ingest ----------
 
+    admin_keys = [k.encode() for k in settings.api_keys]
+
+    def key_project(key):
+        """None for an admin key (LIGHTTRACE_API_KEYS, any project), else the project key's project.
+        Raises PermissionError for a bad key."""
+        if key and any(hmac.compare_digest(key.encode(), k) for k in admin_keys):
+            return None
+        project = store.key_project(key) if key else None
+        if not project:
+            raise PermissionError
+        return project
+
     def check_key(request):
         key = request.headers.get("x-api-key") or ""
         auth = request.headers.get("authorization") or ""
         if not key and auth.lower().startswith("bearer "):
             key = auth[7:]
-        if not any(hmac.compare_digest(key, k) for k in settings.api_keys):
+        try:
+            return key_project(key)
+        except PermissionError:
             raise HTTPException(401, "invalid api key")
 
     async def read_body(request):
@@ -186,7 +198,7 @@ def create_app(settings=None):
 
     @app.post("/runs/batch")
     async def runs_batch(request: Request):
-        check_key(request)
+        project = check_key(request)
         body = await read_json(request)
         if not isinstance(body, dict):
             raise HTTPException(400, "expected {post: [...], patch: [...]}")
@@ -195,24 +207,24 @@ def create_app(settings=None):
             warn_once(("batch-keys", tuple(sorted(unknown))), "ignoring unknown /runs/batch keys %s", sorted(unknown))
         runs = list(body.get("post") or []) + list(body.get("patch") or [])
         _validate_runs(runs)
-        store.upsert_runs(runs)
+        store.upsert_runs(runs, project)
         return {}
 
     @app.post("/runs")
     async def create_run(request: Request):
-        check_key(request)
+        project = check_key(request)
         run = await read_json(request)
         _validate_runs([run])
-        store.upsert_runs([run])
+        store.upsert_runs([run], project)
         return {}
 
     @app.patch("/runs/{run_id}")
     async def update_run(run_id: str, request: Request):
-        check_key(request)
+        project = check_key(request)
         run = await read_json(request)
         if not isinstance(run, dict):
             raise HTTPException(400, "expected a run object")
-        store.upsert_runs([{**run, "id": run_id}])
+        store.upsert_runs([{**run, "id": run_id}], project)
         return {}
 
     @app.post("/runs/multipart")
@@ -223,8 +235,9 @@ def create_app(settings=None):
 
     @app.post("/v1/traces")
     async def otlp_traces(request: Request):
-        """OTLP/HTTP (protobuf or JSON). Project: x-lighttrace-project header, else service.name."""
-        check_key(request)
+        """OTLP/HTTP (protobuf or JSON). Project: the project key's, else the x-lighttrace-project
+        header, else service.name."""
+        project = check_key(request)
         body = await read_body(request)
         ctype = (request.headers.get("content-type") or "").lower()
         if "protobuf" not in ctype and "json" not in ctype:
@@ -232,11 +245,11 @@ def create_app(settings=None):
             raise HTTPException(415, "expected application/x-protobuf or application/json")
         try:
             req, b64 = otel.parse(body, ctype)
-            runs = otel.to_runs(req, b64, request.headers.get("x-lighttrace-project"))
+            runs = otel.to_runs(req, b64, project or request.headers.get("x-lighttrace-project"))
         except Exception as e:  # untrusted payload: any shape error is the sender's
             warn_once(("otlp-bad", type(e).__name__), "rejected OTLP payload: %s", type(e).__name__)
             raise HTTPException(400, "invalid OTLP payload")
-        store.upsert_runs(runs)
+        store.upsert_runs(runs, project)
         if "protobuf" in ctype:  # an empty ExportTraceServiceResponse
             return Response(b"", media_type="application/x-protobuf")
         return {}
@@ -344,6 +357,26 @@ def create_app(settings=None):
     @app.delete("/api/filters/{fid}", **W)
     def api_delete_filter(fid: str):
         store.delete_filter(fid)
+        return {"ok": True}
+
+    @app.get("/api/projects/{project}/keys", **R)
+    def api_keys(project: str):
+        return store.keys(project)
+
+    @app.post("/api/projects/{project}/keys", **W)
+    async def api_create_key(project: str, request: Request):
+        try:
+            name = str((await request.json()).get("name") or "").strip()[:100]
+        except Exception:
+            name = ""
+        if not project.strip() or len(project) > 200:
+            raise HTTPException(400, "bad project name")
+        return store.create_key(project, name or "key")
+
+    @app.delete("/api/keys/{key_id}", **W)
+    def api_delete_key(key_id: str):
+        if not store.delete_key(key_id):
+            raise HTTPException(404, "key not found")
         return {"ok": True}
 
     @app.get("/api/traces/{trace_id}", **R)

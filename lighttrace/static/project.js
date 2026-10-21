@@ -21,6 +21,10 @@ async function viewProjects(q) {
   const cols = ["Name", "Traces", "Threads", "Error rate", "P50", "P99", "Tokens", ...(prices ? ["Cost"] : []), "Last activity"];
   $app.replaceChildren(
     h("div", { class: "page-h" }, h("h1", {}, "Tracing projects"), h("span", { class: "spacer" }),
+      h("button", { class: "ghost", onclick: () => {
+        const name = (prompt("New project name (you'll create its API key next):") || "").trim();
+        if (name) go(["p", name, "keys"]);
+      } }, "+ New project"),
       rangeSelect(range, (v) => go([], new URLSearchParams({ range: v })), ["24h", "7d", "30d", "90d", "all"])),
     h("div", { class: "card" }, projects.length ? h("table", {},
       h("thead", {}, h("tr", {}, cols.map((c, i) => h("th", { class: i && i < cols.length - 1 ? "num" : "" }, c)))),
@@ -34,12 +38,12 @@ async function viewProjects(q) {
           h("td", { class: "num" }, fmtNum(s.total_tokens)), prices ? h("td", { class: "num" }, fmtCost(s.cost)) : null,
           h("td", { title: fmtTime(p.last_activity), class: "muted" }, fmtAgo(p.last_activity)));
       })))
-      : h("div", { class: "empty" }, "No projects yet. Point an app at this server with LANGSMITH_ENDPOINT and LANGSMITH_PROJECT.")));
+      : h("div", { class: "empty" }, "No projects yet. Create one with “+ New project” to get an API key, then point an app at this server.")));
 }
 
 // ---------- project page ----------
 
-const TABS = [["threads", "Threads"], ["traces", "Traces"], ["runs", "Runs"], ["dashboard", "Dashboard"]];
+const TABS = [["threads", "Threads"], ["traces", "Traces"], ["runs", "Runs"], ["dashboard", "Dashboard"], ["keys", "Keys"]];
 
 function filterParams(q, tab) {
   const p = new URLSearchParams();
@@ -92,12 +96,13 @@ async function viewProject(project, tab, q) {
   const tabs = h("div", { class: "tabs" }, TABS.map(([t, label]) => h("a", { href: href(["p", project, t]), class: t === tab ? "on" : "" }, label)),
     h("span", { class: "spacer" }),
     menu("⋯", [["Delete project…", async () => {
-      const typed = prompt(`This deletes every trace in "${project}". Type the project name to confirm:`);
+      const typed = prompt(`This deletes every trace and API key in "${project}". Type the project name to confirm:`);
       if (typed !== project) return;
       await api(`/api/projects/${enc(project)}`, { method: "DELETE" }); go([]);
     }, "danger"]]));
   const head = h("div", { class: "page-h" }, h("h1", {}, project));
   if (tab === "dashboard") return viewDashboard(project, q, head, tabs);
+  if (tab === "keys") return viewKeys(project, head, tabs);
 
   const range = q.get("range") || "7d";
   const update = (changes) => { for (const [k, v] of Object.entries(changes)) v === "" || v == null ? q.delete(k) : q.set(k, v); q.delete("page"); go(["p", project, tab], q); };
@@ -234,6 +239,36 @@ async function viewProject(project, tab, q) {
     actions, h("div", { class: "withside" }, tableBox, statsBox)].filter(Boolean));
   setAuto();
   await Promise.all([loadTable(), loadStats()]);
+}
+
+// ---------- api keys ----------
+
+async function viewKeys(project, head, tabs) {
+  const keys = await api(`/api/projects/${enc(project)}/keys`);
+  const name = h("input", { placeholder: "Key name (e.g. prod server)", size: 28, maxlength: 100 });
+  const create = async (e) => {
+    e.preventDefault();
+    const k = await api(`/api/projects/${enc(project)}/keys`, { method: "POST", body: { name: name.value.trim() } });
+    await viewKeys(project, head, tabs);
+    document.getElementById("newkey").replaceChildren(h("div", { class: "card newkey" },
+      h("b", {}, "Copy this key now — it won't be shown again."),
+      h("div", { class: "row" }, h("code", { class: "mono" }, k.key), copyBtn(k.key)),
+      h("div", { class: "muted small" }, `It can only send traces to “${project}”. Use it as LANGSMITH_API_KEY, or as x-api-key in OTEL_EXPORTER_OTLP_HEADERS.`)));
+  };
+  $app.replaceChildren(head, tabs, h("div", { id: "newkey" }),
+    h("form", { class: "filters", onsubmit: create }, name, h("button", { type: "submit" }, "Create key")),
+    h("div", { class: "card" }, keys.length ? h("table", {},
+      h("thead", {}, h("tr", {}, ["Name", "Key", "Created", "Last used", ""].map((c) => h("th", {}, c)))),
+      h("tbody", {}, keys.map((k) => h("tr", {},
+        h("td", {}, k.name), h("td", { class: "mono" }, `${k.prefix}…`),
+        h("td", { class: "muted", title: fmtTime(k.created_at) }, fmtAgo(k.created_at)),
+        h("td", { class: "muted", title: fmtTime(k.last_used_at) }, k.last_used_at ? fmtAgo(k.last_used_at) : "never"),
+        h("td", {}, h("button", { class: "ghost danger", onclick: async () => {
+          if (!confirm(`Revoke key “${k.name}”? Apps using it will stop sending traces.`)) return;
+          await api(`/api/keys/${enc(k.id)}`, { method: "DELETE" }); viewKeys(project, head, tabs);
+        } }, "Revoke"))))))
+      : h("div", { class: "empty" }, "No keys for this project yet. A key created here can only send traces to this project.")));
+  name.focus();
 }
 
 // ---------- dashboard ----------
