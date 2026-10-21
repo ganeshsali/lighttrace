@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lighttrace"
+version = "0.1.0"
+description = "Lightweight self-hosted tracing server for LangChain/LangGraph apps (LangSmith SDK compatible)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = ["fastapi>=0.110", "uvicorn>=0.29"]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.1"]
+test = ["pytest", "httpx", "langgraph", "langchain-core", "langsmith", "psycopg[binary]>=3.1"]
+
+[project.scripts]
+lighttrace = "lighttrace.app:main"
+
+[tool.setuptools]
+packages = ["lighttrace"]
+
+[tool.setuptools.package-data]
+lighttrace = ["static/*"]
