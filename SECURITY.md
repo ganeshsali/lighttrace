@@ -17,6 +17,5 @@ Fixes go into the latest release only.
   Caddy section) and set `LIGHTTRACE_COOKIE_SECURE=true`.
 - Give each app a **project key** (UI → project → Keys) instead of an admin key from
   `LIGHTTRACE_API_KEYS`; a project key can only write to its own project and can be revoked.
-- The OTLP/gRPC port has no TLS of its own: keep it on a private network or behind a TLS proxy.
 - Traces usually contain user data (prompts, answers, tool results). Set a retention period and limit
   who has the UI password.

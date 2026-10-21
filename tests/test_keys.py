@@ -1,15 +1,12 @@
-import uuid
-
 from conftest import API_KEY
-from test_otel import kv, span
+from test_otel import TRACE, kv, span
 
 ADMIN = {"x-api-key": API_KEY}
 
 
-def run(project="proj", **kw):
-    rid = str(uuid.uuid4())
-    return {"id": rid, "trace_id": kw.pop("trace_id", rid), "name": "root", "run_type": "chain",
-            "start_time": "2026-01-01T00:00:00", "session_name": project, "inputs": {"input": "hi"}, **kw}
+def body(name="root", service="svc", span_id="b7ad6b7169203331", **attrs):
+    return {"resourceSpans": [{"resource": {"attributes": [kv("service.name", service)]},
+                               "scopeSpans": [{"spans": [span(span_id, "", name, 0, 1, attrs)]}]}]}
 
 
 def projects(client):
@@ -25,46 +22,43 @@ def test_project_key_lifecycle_and_confinement(client):
     assert projects(client) == {"mine": 0}  # creating a key creates the project
     key = {"x-api-key": k["key"]}
 
-    # LangSmith path: session_name is ignored, the run lands in the key's project
-    assert client.post("/runs/batch", json={"post": [run("someone-else")]}, headers=key).status_code == 200
-    assert client.post("/runs", json=run("x"), headers=key).status_code == 200
-    # OTLP path (Bearer auth too): header and service.name are ignored
-    body = {"resourceSpans": [{"resource": {"attributes": [kv("service.name", "svc")]},
-                               "scopeSpans": [{"spans": [span("b7ad6b7169203331", "", "otel-root", 0, 1, {})]}]}]}
-    assert client.post("/v1/traces", json=body, headers={"authorization": f"Bearer {k['key']}",
-                                                         "x-lighttrace-project": "other"}).status_code == 200
-    assert projects(client) == {"mine": 3}
+    # the x-lighttrace-project header and service.name are ignored: traces land in the key's project
+    assert client.post("/v1/traces", json=body(service="a"), headers={**key, "x-lighttrace-project": "other"}
+                       ).status_code == 200
+    assert client.post("/v1/traces", json=body(service="b"), headers={"authorization": f"Bearer {k['key']}"}
+                       ).status_code == 200
+    assert projects(client) == {"mine": 2}
     assert client.get("/api/projects/mine/keys").json()[0]["last_used_at"] is not None
 
-    # it cannot touch another project's runs: neither patch them nor add runs to their traces
-    theirs = run("theirs")
-    client.post("/runs/batch", json={"post": [theirs]}, headers=ADMIN)
-    assert client.patch(f"/runs/{theirs['id']}", json={"error": "pwned"}, headers=key).status_code == 200
-    intruder = run(trace_id=theirs["id"], parent_run_id=theirs["id"], name="intruder")
-    client.post("/runs/batch", json={"post": [intruder]}, headers=key)
-    t = client.get(f"/api/traces/{theirs['id']}").json()
-    assert t["project"] == "theirs" and [r["name"] for r in t["runs"]] == ["root"] and t["runs"][0]["error"] is None
+    # it cannot overwrite another project's runs (same OTel ids) nor add spans to their traces
+    client.post("/v1/traces", json=body(service="shared"), headers={**ADMIN, "x-lighttrace-project": "theirs"})
+    client.post("/v1/traces", json=body("pwned", service="shared"), headers=key)
+    child = body("intruder", service="shared", span_id="1111111111111111")
+    child["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["parentSpanId"] = "b7ad6b7169203331"
+    client.post("/v1/traces", json=child, headers=key)
+    [t] = client.get("/api/projects/theirs/runs").json()["items"]
+    assert t["name"] == "root" and [r["name"] for r in client.get(f"/api/traces/{t['id']}").json()["runs"]] == ["root"]
 
-    # revoked: rejected on both paths
+    # revoked: rejected on traces and logs
     assert client.delete(f"/api/keys/{k['id']}").status_code == 200
-    assert client.post("/runs/batch", json={"post": [run()]}, headers=key).status_code == 401
-    assert client.post("/v1/traces", json=body, headers=key).status_code == 401
+    assert client.post("/v1/traces", json=body(), headers=key).status_code == 401
+    assert client.post("/v1/logs", json={"resourceLogs": []}, headers=key).status_code == 401
     assert client.delete(f"/api/keys/{k['id']}").status_code == 404
 
 
 def test_admin_key_writes_anywhere(client):
-    client.post("/runs/batch", json={"post": [run("a"), run("b")]}, headers=ADMIN)
-    body = {"resourceSpans": [{"scopeSpans": [{"spans": [span("b7ad6b7169203331", "", "r", 0, 1, {})]}]}]}
-    client.post("/v1/traces", json=body, headers={**ADMIN, "x-lighttrace-project": "c"})
+    for p in ("a", "b"):
+        client.post("/v1/traces", json=body(service=p), headers=ADMIN)
+    client.post("/v1/traces", json=body(service="x"), headers={**ADMIN, "x-lighttrace-project": "c"})
     assert projects(client) == {"a": 1, "b": 1, "c": 1}
-    assert client.post("/runs", json=run(), headers={"x-api-key": ""}).status_code == 401
+    assert client.post("/v1/traces", json=body(), headers={"x-api-key": ""}).status_code == 401
 
 
 def test_deleting_a_project_revokes_its_keys(client):
     k = client.post("/api/projects/gone/keys", json={}).json()
     assert k["name"] == "key"
     client.delete("/api/projects/gone")
-    assert client.post("/runs", json=run(), headers={"x-api-key": k["key"]}).status_code == 401
+    assert client.post("/v1/traces", json=body(), headers={"x-api-key": k["key"]}).status_code == 401
 
 
 def test_ui_files_are_revalidated(client):

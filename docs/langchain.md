@@ -1,25 +1,42 @@
 # LangChain
 
-## Route 1: the LangSmith SDK (no code change)
+LangChain sends to lighttrace's one receiver (`/v1/traces`) like every other framework. Two ways:
 
-LangChain already ships the `langsmith` SDK. Point it here with environment variables:
+## Option 1: the LangSmith SDK's OpenTelemetry mode (no code change, recommended)
+
+LangChain already ships the `langsmith` SDK, which can emit OpenTelemetry. Settings only:
 
 ```bash
+pip install 'langsmith[otel]'              # the OpenTelemetry packages it needs
 export LANGSMITH_TRACING=true
-export LANGSMITH_ENDPOINT=http://127.0.0.1:1984
-export LANGSMITH_API_KEY=<your key>
-export LANGSMITH_PROJECT=my-app      # ignored with a project key: the key decides
+export LANGSMITH_OTEL_ENABLED=true
+export LANGSMITH_OTEL_ONLY=true            # send only to lighttrace, never to LangSmith's cloud
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:1984
+export OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<your key>
+export OTEL_SERVICE_NAME=my-app
 ```
 
-That's all. This route gives the richest traces (every chain, prompt, parser and LLM call, with
-LangChain's own inputs and outputs). Group turns into threads with
+You get every chain, prompt, parser, LLM call (with tokens) and tool, with LangChain's own inputs and
+outputs; errors, tags and metadata come along. Group turns into threads with
 `config={"metadata": {"thread_id": "..."}}`.
 
-Runnable: [`examples/demo_app.py`](../examples/demo_app.py) (fake chat model, no API key needed).
+A short script must flush before it exits; a long-running server needs nothing:
 
-## Route 2: OpenTelemetry with OpenInference
+```python
+from opentelemetry import trace
+trace.get_tracer_provider().shutdown()
+```
 
-For apps that already use OpenTelemetry, or that should send to several backends:
+Runnable: [`examples/demo_app.py`](../examples/demo_app.py) (fake chat model, no API key needed), tested
+end to end in `tests/test_e2e.py`, which also checks that nothing is sent to LangSmith's cloud.
+
+**Moving an app from older lighttrace versions:** replace `LANGSMITH_ENDPOINT`, `LANGSMITH_API_KEY` and
+`LANGSMITH_PROJECT` with the settings above. The project now comes from the key (or `OTEL_SERVICE_NAME`
+with an admin key).
+
+## Option 2: OpenInference
+
+For apps that already use OpenTelemetry for other things:
 
 ```bash
 pip install openinference-instrumentation-langchain opentelemetry-sdk opentelemetry-exporter-otlp-proto-http
@@ -33,19 +50,7 @@ from openinference.instrumentation.langchain import LangChainInstrumentor
 LangChainInstrumentor().instrument(tracer_provider=provider)
 ```
 
-Runnable: [`examples/otel_demo.py`](../examples/otel_demo.py) (tested end to end).
-
-### LangSmith SDK in OpenTelemetry mode
-
-The LangSmith SDK can also emit OpenTelemetry instead of its own format:
-
-```bash
-pip install 'langsmith[otel]'
-export LANGSMITH_TRACING=true LANGSMITH_OTEL_ENABLED=true LANGSMITH_OTEL_ONLY=true
-export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:1984 OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<your key>
-```
-
-lighttrace reads its `langsmith.*` attributes (tested with a real payload). Route 1 is simpler.
+Runnable: [`examples/otel_demo.py`](../examples/otel_demo.py), tested end to end.
 
 ## OpenLLMetry alternative
 

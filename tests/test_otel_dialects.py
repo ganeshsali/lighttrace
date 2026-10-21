@@ -4,7 +4,6 @@ import json
 import uuid
 from pathlib import Path
 
-import pytest
 
 from conftest import API_KEY
 from test_otel import TRACE, kv, span
@@ -85,7 +84,7 @@ def test_vercel_ai_sdk(client):
 
 
 def test_langfuse_sdk_v3(client):
-    """langfuse 3.15 Python SDK: agent > generation + tool (tool marked level=ERROR)."""
+    """langfuse 3.15 Python SDK spans (agent > generation + tool marked level=ERROR), sent to /v1/traces."""
     post(client, fixture("langfuse_v3.json"))
     t, runs = only_trace(client)
     assert t["name"] == "support-agent" and t["thread_id"] == "sess-1" and t["tags"] == ["prod", "beta"]
@@ -110,31 +109,6 @@ def test_agent_spans(client):
     assert [r["run_type"] for r in runs] == ["agent", "agent", "agent"]
     agents = client.get("/api/projects/proj/runs", params={"scope": "runs", "run_type": "agent"}).json()["items"]
     assert len(agents) == 3
-
-
-def run_sdk(script, **env):
-    """Run an SDK snippet in its own process (SDKs install global tracer providers)."""
-    import os
-    import subprocess
-    import sys
-    r = subprocess.run([sys.executable, "-c", script], env={**os.environ, **env}, capture_output=True, text=True,
-                       timeout=60)
-    assert r.returncode == 0, r.stderr[-2000:]
-
-
-def test_langfuse_sdk_live(live_server):
-    """The real Langfuse SDK pointed at lighttrace: LANGFUSE_HOST + the lighttrace key as secret key."""
-    pytest.importorskip("langfuse")
-    url, app = live_server
-    run_sdk("""
-from langfuse import Langfuse
-lf = Langfuse()
-with lf.start_as_current_observation(as_type="agent", name="lf-agent", input={"question": "hi"}) as a:
-    a.update(output={"answer": "yo"})
-lf.shutdown()
-""", LANGFUSE_HOST=url, LANGFUSE_PUBLIC_KEY="pk-anything", LANGFUSE_SECRET_KEY=API_KEY)
-    [t] = app.state.store.runs("default", {}, "traces")["items"]
-    assert (t["name"], t["run_type"], t["input_preview"], t["output_preview"]) == ("lf-agent", "agent", "hi", "yo")
 
 
 # ---------------------------------------------------------------- transports
@@ -209,54 +183,6 @@ def test_otlp_json_base64_ids_and_metrics(client):
     assert client.post("/v1/metrics", json={}).status_code == 401
 
 
-def test_otlp_grpc(db_target):
-    """The real OTLP/gRPC exporters (spans + logs) against LIGHTTRACE_GRPC_PORT, incl. a project key."""
-    pytest.importorskip("grpc")
-    grpc_exp = pytest.importorskip("opentelemetry.exporter.otlp.proto.grpc.trace_exporter")
-    import socket
-
-    from opentelemetry.exporter.otlp.proto.grpc._log_exporter import OTLPLogExporter
-    from opentelemetry._logs import LogRecord
-    from opentelemetry.sdk._logs import LoggerProvider
-    from opentelemetry.sdk._logs.export import SimpleLogRecordProcessor
-    from opentelemetry.sdk.resources import Resource
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
-
-    from conftest import make_settings
-    from lighttrace.app import create_app
-
-    with socket.socket() as sock:
-        sock.bind(("127.0.0.1", 0))
-        port = sock.getsockname()[1]
-    app = create_app(make_settings(db_target, grpc_port=port))
-    try:
-        key = app.state.store.create_key("grpc-proj", "k")["key"]
-        res = Resource.create({"service.name": "ignored"})
-        tp = TracerProvider(resource=res)
-        tp.add_span_processor(SimpleSpanProcessor(grpc_exp.OTLPSpanExporter(
-            endpoint=f"127.0.0.1:{port}", insecure=True, headers={"x-api-key": key})))
-        with tp.get_tracer("t").start_as_current_span("grpc-root", attributes={"gen_ai.operation.name": "chat"}) as sp:
-            ctx = sp.get_span_context()
-        tp.shutdown()
-        lp = LoggerProvider(resource=res)
-        lp.add_log_record_processor(SimpleLogRecordProcessor(OTLPLogExporter(
-            endpoint=f"127.0.0.1:{port}", insecure=True, headers={"authorization": f"Bearer {key}"})))
-        lp.get_logger("t").emit(LogRecord(trace_id=ctx.trace_id, span_id=ctx.span_id, body={"content": "hi"},
-                                          event_name="gen_ai.user.message"))
-        lp.shutdown()
-        bad = TracerProvider()
-        bad.add_span_processor(SimpleSpanProcessor(grpc_exp.OTLPSpanExporter(
-            endpoint=f"127.0.0.1:{port}", insecure=True, headers={"x-api-key": "nope"})))
-        bad.get_tracer("t").start_span("rejected").end()
-        bad.shutdown()
-        [t] = app.state.store.runs("grpc-proj", {}, "traces")["items"]
-        assert t["name"] == "grpc-root" and t["input_preview"] == "hi"
-        assert [p["name"] for p in app.state.store.projects(0)] == ["grpc-proj"]
-    finally:
-        app.state.grpc.stop(0)
-
-
 # ---------------------------------------------------------------- dialects (real payloads, see FIX)
 
 def dialect(client, name):
@@ -315,6 +241,14 @@ def test_langsmith_otel_mode(client):
     assert llm["run_type"] == "llm" and llm["total_tokens"] == 12
     assert llm["inputs"]["messages"][0][0]["kwargs"]["content"] == "Weather in Pune?"  # LangChain-serialized
     assert llm["extra"]["metadata"]["ls_provider"] == "genericfakechatmodel"
+
+
+def test_langsmith_otel_mode_error(client):
+    """A failing LangGraph run in LangSmith OTel mode: the SDK marks the root span OK but attaches the
+    exception event; the trace must still show as an error."""
+    t, runs = dialect(client, "langsmith_otel_error")
+    assert t["status"] == "error" and "ERP API timeout" in t["error"]
+    assert runs["get_stock"]["status"] == "success"
 
 
 def test_mlflow(client):

@@ -1,24 +1,29 @@
 # LangGraph
 
-LangGraph runs on LangChain, so both LangChain routes work unchanged.
+LangGraph runs on LangChain, so both [LangChain options](langchain.md) work unchanged and send to the one
+receiver (`/v1/traces`).
 
-## Route 1: the LangSmith SDK (no code change, recommended)
+## Option 1: the LangSmith SDK's OpenTelemetry mode (no code change, recommended)
 
 ```bash
+pip install 'langsmith[otel]'
 export LANGSMITH_TRACING=true
-export LANGSMITH_ENDPOINT=http://127.0.0.1:1984
-export LANGSMITH_API_KEY=<your key>
-export LANGSMITH_PROJECT=my-agent
+export LANGSMITH_OTEL_ENABLED=true
+export LANGSMITH_OTEL_ONLY=true            # never send to LangSmith's cloud
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:1984
+export OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<your key>
+export OTEL_SERVICE_NAME=my-agent
 ```
 
 Each `graph.invoke(...)` becomes one trace with every node, LLM call and tool inside it. Pass
 `config={"metadata": {"thread_id": thread_id}}` (the same id you give the checkpointer) and the
-**Threads** tab shows the whole conversation.
+**Threads** tab shows the whole conversation. Short scripts: call
+`opentelemetry.trace.get_tracer_provider().shutdown()` before exiting.
 
-Runnable: [`examples/demo_app.py`](../examples/demo_app.py): a LangGraph agent with a tool, a fake
-model and three threads. This route has an end-to-end test (`tests/test_e2e.py`).
+Runnable: [`examples/demo_app.py`](../examples/demo_app.py): a LangGraph agent with tools, a fake model,
+three threads and one failing turn. End to end test: `tests/test_e2e.py`.
 
-## Route 2: OpenTelemetry with OpenInference
+## Option 2: OpenInference
 
 ```bash
 pip install openinference-instrumentation-langchain opentelemetry-sdk opentelemetry-exporter-otlp-proto-http

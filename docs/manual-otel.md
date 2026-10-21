@@ -32,8 +32,8 @@ with tracer.start_as_current_span("chat my-model", attributes={
 
 Runnable: [`examples/manual_otel.py`](../examples/manual_otel.py), tested end to end.
 
-Other languages work the same way: point their OTLP exporter at `http://<host>:1984` (HTTP, protobuf
-or JSON) or, with the `grpc` extra, at `LIGHTTRACE_GRPC_PORT`.
+Other languages work the same way: point their OTLP exporter at `http://<host>:1984` with the HTTP
+protocol (`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` or `http/json`).
 
 ## OpenLLMetry alternative
 

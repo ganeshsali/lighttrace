@@ -71,6 +71,27 @@ def test_otlp_json_openinference_and_genai(client):
     assert client.get("/api/projects/proj/thread", params={"id": "t1"}).json()["stats"]["turns"] == 1
 
 
+def test_one_receiver_only(client):
+    """The old LangSmith-style API, the Langfuse path and Basic auth are gone: /v1/* is the only way in."""
+    import base64
+    for method, path in (("get", "/info"), ("post", "/runs/batch"), ("post", "/runs"), ("patch", "/runs/x"),
+                         ("post", "/api/public/otel/v1/traces")):
+        assert client.request(method.upper(), path, json={}, headers=H).status_code == 404
+    basic = "Basic " + base64.b64encode(f"pk:{API_KEY}".encode()).decode()
+    assert client.post("/v1/traces", json={}, headers={"authorization": basic}).status_code == 401
+
+
+def test_otlp_json_gzip(client):
+    import gzip
+    body = {"resourceSpans": [{"scopeSpans": [{"spans": [span(ROOT, "", "zipped", 0, 1, {"input.value": "gz?"})]}]}]}
+    r = client.post("/v1/traces", content=gzip.compress(json.dumps(body).encode()),
+                    headers={**H, "content-type": "application/json", "content-encoding": "gzip"})
+    assert r.status_code == 200
+    assert client.get("/api/projects/proj/runs", params={"q": "gz"}).json()["items"][0]["name"] == "zipped"
+    assert client.post("/v1/traces", content=b"x", headers={**H, "content-type": "application/json",
+                                                            "content-encoding": "zstd"}).status_code == 415
+
+
 def test_otlp_rejects_bad_key_type_and_payload(client):
     assert client.post("/v1/traces", json={}, headers={"x-api-key": "nope"}).status_code == 401
     assert client.post("/v1/traces", content=b"x", headers={**H, "content-type": "text/plain"}).status_code == 415

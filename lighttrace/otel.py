@@ -1,4 +1,4 @@
-"""OTLP/HTTP trace ingest: OpenTelemetry spans -> lighttrace runs.
+"""lighttrace's one receiver: OTLP/HTTP (traces, plus GenAI log events) -> lighttrace runs.
 
 Spans become the same run dicts the LangSmith SDK sends, so storage and UI are shared.
 Understands the OpenInference (Arize Phoenix) and OTel GenAI semantic conventions (attributes,
@@ -174,7 +174,8 @@ def _run(span, project, runtime, service):
     for side, msgs in found.items():
         if msgs and run[side] is None:
             run[side] = {"messages": msgs}
-    run["error"] = _error(span.get("status") or {}, events, a)
+    # The LangSmith SDK marks a failed root span OK but still records its exception event.
+    run["error"] = _error(span.get("status") or {}, events, a, runtime.get("otel.scope") == "langsmith")
     run["events"] = [{"name": e.get("name"), "time": _secs(e.get("timeUnixNano")), "kwargs": _attrs(e.get("attributes"))}
                      for e in events] or None
     if run_id == trace:
@@ -404,11 +405,11 @@ def _parts_text(parts):
                      else json.dumps(p, ensure_ascii=False, default=str) for p in _list(parts))
 
 
-def _error(status, events, a):
+def _error(status, events, a, exception_fails=False):
     level, message = a.pop("langfuse.observation.level", None), a.pop("langfuse.observation.status_message", None)
     if level == "ERROR":
         return message or "error"
-    if status.get("code") != STATUS_ERROR:
+    if status.get("code") != STATUS_ERROR and not (exception_fails and any(e.get("name") == "exception" for e in events)):
         return None
     for e in events:
         if e.get("name") == "exception":
@@ -517,45 +518,3 @@ def _wrap(v, key, llm=False):
     if v is None or isinstance(v, dict):
         return v
     return {key: v}
-
-
-# ---------------------------------------------------------------- OTLP/gRPC
-
-def serve_grpc(host, port, max_bytes, key_project, ingest):
-    """OTLP/gRPC on its own port: the same auth (x-api-key or authorization metadata) and the same
-    conversion as OTLP/HTTP. Metrics are accepted and dropped. Returns the started grpc.Server."""
-    from concurrent import futures
-
-    import grpc
-    from opentelemetry.proto.collector.logs.v1 import logs_service_pb2 as logs
-    from opentelemetry.proto.collector.metrics.v1 import metrics_service_pb2 as metrics
-    from opentelemetry.proto.collector.trace.v1 import trace_service_pb2 as trace
-
-    def service(kind, pkg, name, req_type, resp_type):
-        def export(req, ctx):
-            md = dict(ctx.invocation_metadata())
-            auth = md.get("authorization") or ""
-            key = md.get("x-api-key") or (auth[7:] if auth.lower().startswith("bearer ") else "")
-            try:
-                project = key_project(key)
-            except PermissionError:
-                ctx.abort(grpc.StatusCode.UNAUTHENTICATED, "invalid api key")
-            try:
-                ingest(kind, to_dict(req) if kind != "metrics" else None, project, md.get("x-lighttrace-project"))
-            except ValueError:
-                ctx.abort(grpc.StatusCode.INVALID_ARGUMENT, "invalid OTLP payload")
-            return resp_type()
-
-        return grpc.method_handlers_generic_handler(f"opentelemetry.proto.collector.{pkg}.v1.{name}", {
-            "Export": grpc.unary_unary_rpc_method_handler(export, request_deserializer=req_type.FromString,
-                                                          response_serializer=resp_type.SerializeToString)})
-
-    server = grpc.server(futures.ThreadPoolExecutor(4), options=[("grpc.max_receive_message_length", max_bytes)])
-    server.add_generic_rpc_handlers([
-        service("traces", "trace", "TraceService", trace.ExportTraceServiceRequest, trace.ExportTraceServiceResponse),
-        service("logs", "logs", "LogsService", logs.ExportLogsServiceRequest, logs.ExportLogsServiceResponse),
-        service("metrics", "metrics", "MetricsService", metrics.ExportMetricsServiceRequest,
-                metrics.ExportMetricsServiceResponse)])
-    server.add_insecure_port(f"{host}:{port}")
-    server.start()
-    return server

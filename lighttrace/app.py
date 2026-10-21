@@ -1,6 +1,5 @@
-"""lighttrace server: LangSmith-compatible ingest + a web UI."""
+"""lighttrace server: one OpenTelemetry (OTLP/HTTP) receiver + a web UI."""
 
-import base64
 import hashlib
 import hmac
 import json
@@ -50,8 +49,6 @@ class Settings:
     max_body_mb: float = field(default_factory=lambda: float(os.environ.get("LIGHTTRACE_MAX_BODY_MB", "50")))
     host: str = field(default_factory=lambda: os.environ.get("LIGHTTRACE_HOST", "127.0.0.1"))
     port: int = field(default_factory=lambda: int(os.environ.get("LIGHTTRACE_PORT", "1984")))
-    # OTLP/gRPC port (4317 is the usual one); 0 = off. Needs pip install 'lighttrace[grpc]'.
-    grpc_port: int = field(default_factory=lambda: int(os.environ.get("LIGHTTRACE_GRPC_PORT", "0")))
     prices: dict = field(default_factory=lambda: _load_prices(os.environ.get("LIGHTTRACE_PRICES", "")))
 
     def validate(self):
@@ -67,22 +64,6 @@ def warn_once(key, msg, *args):
     if key not in _warned:
         _warned.add(key)
         log.warning(msg, *args)
-
-
-# The SDK reads all of these keys; a missing one kills its tracing thread.
-INFO = {
-    "version": __version__,
-    "license_expiration_time": None,
-    "batch_ingest_config": {
-        "use_multipart_endpoint": False,
-        "scale_up_qsize_trigger": 1000,
-        "scale_up_nthreads_limit": 16,
-        "scale_down_nempty_trigger": 4,
-        "size_limit": 100,
-        "size_limit_bytes": 20_971_520,
-    },
-    "instance_flags": {"zstd_compression_enabled": False},
-}
 
 
 def _float(v):
@@ -148,30 +129,18 @@ def create_app(settings=None):
 
     admin_keys = [k.encode() for k in settings.api_keys]
 
-    def key_project(key):
-        """None for an admin key (LIGHTTRACE_API_KEYS, any project), else the project key's project.
-        Raises PermissionError for a bad key."""
-        if key and any(hmac.compare_digest(key.encode(), k) for k in admin_keys):
-            return None
-        project = store.key_project(key) if key else None
-        if not project:
-            raise PermissionError
-        return project
-
     def check_key(request):
+        """None for an admin key (LIGHTTRACE_API_KEYS, any project), else the project key's project."""
         key = request.headers.get("x-api-key") or ""
         auth = request.headers.get("authorization") or ""
         if not key and auth.lower().startswith("bearer "):
             key = auth[7:]
-        elif not key and auth.lower().startswith("basic "):  # Langfuse SDK: public_key:secret_key
-            try:
-                key = base64.b64decode(auth[6:]).decode().partition(":")[2]
-            except ValueError:
-                pass
-        try:
-            return key_project(key)
-        except PermissionError:
+        if key and any(hmac.compare_digest(key.encode(), k) for k in admin_keys):
+            return None
+        project = store.key_project(key) if key else None
+        if not project:
             raise HTTPException(401, "invalid api key")
+        return project
 
     async def read_body(request):
         body = await request.body()
@@ -189,113 +158,43 @@ def create_app(settings=None):
             raise HTTPException(415, f"unsupported content-encoding {enc}")
         return body
 
-    async def read_json(request):
-        body = await read_body(request)
-        ctype = request.headers.get("content-type", "")
-        if ctype and "json" not in ctype:
-            warn_once(("ctype", ctype.split(";")[0]), "unsupported Content-Type %r on %s", ctype, request.url.path)
-            raise HTTPException(415, "expected application/json")
-        try:
-            return json.loads(body)
-        except ValueError:
-            raise HTTPException(400, "invalid json")
-
-    @app.get("/info")
-    def info():
-        return INFO
-
-    @app.post("/runs/batch")
-    async def runs_batch(request: Request):
-        project = check_key(request)
-        body = await read_json(request)
-        if not isinstance(body, dict):
-            raise HTTPException(400, "expected {post: [...], patch: [...]}")
-        unknown = set(body) - {"post", "patch"}
-        if unknown:
-            warn_once(("batch-keys", tuple(sorted(unknown))), "ignoring unknown /runs/batch keys %s", sorted(unknown))
-        runs = list(body.get("post") or []) + list(body.get("patch") or [])
-        _validate_runs(runs)
-        store.upsert_runs(runs, project)
-        return {}
-
-    @app.post("/runs")
-    async def create_run(request: Request):
-        project = check_key(request)
-        run = await read_json(request)
-        _validate_runs([run])
-        store.upsert_runs([run], project)
-        return {}
-
-    @app.patch("/runs/{run_id}")
-    async def update_run(run_id: str, request: Request):
-        project = check_key(request)
-        run = await read_json(request)
-        if not isinstance(run, dict):
-            raise HTTPException(400, "expected a run object")
-        store.upsert_runs([{**run, "id": run_id}], project)
-        return {}
-
-    @app.post("/runs/multipart")
-    def runs_multipart():
-        # 404 makes the SDK fall back to /runs/batch.
-        warn_once("multipart", "SDK used /runs/multipart; lighttrace only supports /runs/batch (it will fall back)")
-        raise HTTPException(404, "multipart ingest not supported")
-
-    def otlp_ingest(kind, req, project, header_project):
-        """One OTLP export (traces | logs | metrics) as a JSON-style dict, from HTTP or gRPC.
-        Project: the project key's, else the x-lighttrace-project header, else service.name.
-        Raises ValueError for a payload that does not convert."""
-        if kind == "metrics":
-            warn_once("metrics", "ignoring OTLP metrics (lighttrace stores traces only); "
-                                 "set OTEL_METRICS_EXPORTER=none in the app to stop sending them")
-            return
-        try:
-            data = otel.to_runs(req, project or header_project) if kind == "traces" else otel.log_messages(req)
-        except Exception as e:  # untrusted payload: any shape error is the sender's
-            warn_once(("otlp-bad", type(e).__name__), "rejected OTLP payload: %s", type(e).__name__)
-            raise ValueError
-        (store.upsert_runs if kind == "traces" else store.attach_messages)(data, project)
-
-    async def otlp_http(request, kind):
+    async def otlp(request, kind):
+        """One OTLP/HTTP export (protobuf or JSON). Project: the project key's, else the
+        x-lighttrace-project header, else service.name."""
         project = check_key(request)
         body = await read_body(request)
         ctype = (request.headers.get("content-type") or "").lower()
         if "protobuf" not in ctype and "json" not in ctype:
             warn_once(("otlp-ctype", ctype.split(";")[0]), "unsupported OTLP Content-Type %r", ctype)
             raise HTTPException(415, "expected application/x-protobuf or application/json")
-        try:
-            req = otel.parse(body, ctype, kind) if kind != "metrics" else None
-        except Exception as e:  # untrusted payload
-            warn_once(("otlp-bad", type(e).__name__), "rejected OTLP payload: %s", type(e).__name__)
-            raise HTTPException(400, "invalid OTLP payload")
-        try:
-            otlp_ingest(kind, req, project, request.headers.get("x-lighttrace-project"))
-        except ValueError:
-            raise HTTPException(400, "invalid OTLP payload")
+        if kind == "metrics":
+            warn_once("metrics", "ignoring OTLP metrics (lighttrace stores traces only); "
+                                 "set OTEL_METRICS_EXPORTER=none in the app to stop sending them")
+        else:
+            try:
+                req = otel.parse(body, ctype, kind)
+                data = (otel.to_runs(req, project or request.headers.get("x-lighttrace-project")) if kind == "traces"
+                        else otel.log_messages(req))
+            except Exception as e:  # untrusted payload: any shape error is the sender's
+                warn_once(("otlp-bad", type(e).__name__), "rejected OTLP payload: %s", type(e).__name__)
+                raise HTTPException(400, "invalid OTLP payload")
+            (store.upsert_runs if kind == "traces" else store.attach_messages)(data, project)
         if "protobuf" in ctype:  # an empty Export*ServiceResponse
             return Response(b"", media_type="application/x-protobuf")
         return {}
 
     @app.post("/v1/traces")
-    @app.post("/api/public/otel/v1/traces")  # where the Langfuse SDK sends (LANGFUSE_HOST)
     async def otlp_traces(request: Request):
-        return await otlp_http(request, "traces")
+        return await otlp(request, "traces")
 
     @app.post("/v1/logs")
     async def otlp_logs(request: Request):
         """Only GenAI events (prompt/response content) are kept, on their span's run."""
-        return await otlp_http(request, "logs")
+        return await otlp(request, "logs")
 
     @app.post("/v1/metrics")
     async def otlp_metrics(request: Request):
-        return await otlp_http(request, "metrics")
-
-    if settings.grpc_port:
-        try:
-            import grpc  # noqa: F401
-        except ImportError:
-            raise SystemExit("lighttrace: LIGHTTRACE_GRPC_PORT needs grpcio: pip install 'lighttrace[grpc]'")
-        app.state.grpc = otel.serve_grpc(settings.host, settings.grpc_port, max_body, key_project, otlp_ingest)
+        return await otlp(request, "metrics")
 
     # ---------- UI auth ----------
 
@@ -453,17 +352,16 @@ def create_app(settings=None):
 
     @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     def unknown(path: str, request: Request):
+        if path in ("info", "runs", "runs/batch", "runs/multipart") or path.startswith("runs/"):
+            warn_once("langsmith", "an app used the old LangSmith-style API (/%s), which lighttrace no longer has; "
+                                   "set LANGSMITH_OTEL_ENABLED=true LANGSMITH_OTEL_ONLY=true and OTEL_EXPORTER_OTLP_* "
+                                   "in that app (see docs/langchain.md)", path)
+            return Response(status_code=404)
         warn_once(("path", request.method, path.split("/")[0]),
                   "unsupported endpoint %s /%s (lighttrace implements tracing ingest only)", request.method, path)
         return Response(status_code=404)
 
     return app
-
-
-def _validate_runs(runs):
-    for run in runs:
-        if not isinstance(run, dict) or not run.get("id"):
-            raise HTTPException(400, "each run needs an id")
 
 
 def load_dotenv(path=".env"):
@@ -490,7 +388,7 @@ def main():
 
     load_dotenv()
     s = Settings()
-    p = argparse.ArgumentParser(prog="lighttrace", description="Lightweight LangSmith-compatible tracing server")
+    p = argparse.ArgumentParser(prog="lighttrace", description="Lightweight self-hosted tracing server (OpenTelemetry)")
     p.add_argument("--host", default=s.host)
     p.add_argument("--port", type=int, default=s.port)
     p.add_argument("--db", default=s.db_path, help="SQLite file path or postgresql:// URL")
@@ -499,8 +397,8 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     app = create_app(s)
     where = "postgres" if s.db_path.startswith(("postgres://", "postgresql://")) else s.db_path
-    log.info("lighttrace %s on http://%s:%d%s (db: %s, retention: %s)", __version__, s.host, s.port,
-             f", OTLP/gRPC on {s.grpc_port}" if s.grpc_port else "", where,
+    log.info("lighttrace %s on http://%s:%d, OTLP at /v1/traces (db: %s, retention: %s)", __version__, s.host,
+             s.port, where,
              f"{s.retention_days:g} days" if s.retention_days > 0 else "forever")
     # access_log off: keep logs quiet; payloads are never logged anywhere.
     uvicorn.run(app, host=s.host, port=s.port, access_log=False, proxy_headers=True)

@@ -253,7 +253,7 @@ async function viewKeys(project, head, tabs) {
     document.getElementById("newkey").replaceChildren(h("div", { class: "card newkey" },
       h("b", {}, "Copy this key now — it won't be shown again."),
       h("div", { class: "row" }, h("code", { class: "mono" }, k.key), copyBtn(k.key)),
-      h("div", { class: "muted small" }, `It can only send traces to “${project}”. Use it as LANGSMITH_API_KEY, or as x-api-key in OTEL_EXPORTER_OTLP_HEADERS.`)));
+      h("div", { class: "muted small" }, `It can only send traces to “${project}”. Put it in the app as OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<key>.`)));
   };
   $app.replaceChildren(head, tabs, h("div", { id: "newkey" }),
     h("form", { class: "filters", onsubmit: create }, name, h("button", { type: "submit" }, "Create key")),

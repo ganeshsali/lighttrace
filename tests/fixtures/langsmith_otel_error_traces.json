@@ -1,0 +1,931 @@
+{
+ "resourceSpans": [
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "langsmith"
+      }
+     },
+     {
+      "key": "langsmith.internal_provider",
+      "value": {
+       "boolValue": true
+      }
+     }
+    ]
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "langsmith"
+     },
+     "spans": [
+      {
+       "traceId": "0e9c9896cdae6de2d9860bdb550185ad",
+       "spanId": "baa42b364b7ccdb6",
+       "parentSpanId": "34c6bea2493b6e70",
+       "name": "agent",
+       "kind": 1,
+       "startTimeUnixNano": "1792584414546479104",
+       "endTimeUnixNano": "1792584414603959040",
+       "attributes": [
+        {
+         "key": "langsmith.span.kind",
+         "value": {
+          "stringValue": "chain"
+         }
+        },
+        {
+         "key": "langsmith.trace.name",
+         "value": {
+          "stringValue": "agent"
+         }
+        },
+        {
+         "key": "langsmith.trace.session_name",
+         "value": {
+          "stringValue": "default"
+         }
+        },
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chain"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "langchain"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_integration",
+         "value": {
+          "stringValue": "langgraph"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_step",
+         "value": {
+          "intValue": "1"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_node",
+         "value": {
+          "stringValue": "agent"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_triggers",
+         "value": {
+          "stringValue": "[\"branch:to:agent\"]"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_path",
+         "value": {
+          "stringValue": "[\"__pregel_pull\",\"agent\"]"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_checkpoint_ns",
+         "value": {
+          "stringValue": "agent:b0c55a2a-f589-6dc1-c588-40789dec19d7"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_TRACING",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ENABLED",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ONLY",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.span.tags",
+         "value": {
+          "stringValue": "graph:step:1"
+         }
+        },
+        {
+         "key": "gen_ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[{\"content\":\"x\",\"additional_kwargs\":{},\"response_metadata\":{},\"type\":\"human\",\"id\":\"6e94f9d3-a89e-438b-b4fd-9d2cadfd36d8\"}]}"
+         }
+        },
+        {
+         "key": "gen_ai.completion",
+         "value": {
+          "stringValue": "{\"messages\":[{\"content\":\"\",\"additional_kwargs\":{},\"response_metadata\":{},\"type\":\"ai\",\"id\":\"lc_run--01a15e5b-7588-725c-8d6d-4e0cba7f3ccd-0\",\"tool_calls\":[{\"name\":\"get_stock\",\"args\":{\"item\":\"w\"},\"id\":\"c\",\"type\":\"tool_call\"}],\"invalid_tool_calls\":[]}]}"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 256
+      },
+      {
+       "traceId": "0e9c9896cdae6de2d9860bdb550185ad",
+       "spanId": "6ac2f1128a13f503",
+       "parentSpanId": "baa42b364b7ccdb6",
+       "name": "GenericFakeChatModel",
+       "kind": 1,
+       "startTimeUnixNano": "1792584414601000192",
+       "endTimeUnixNano": "1792584414603151104",
+       "attributes": [
+        {
+         "key": "langsmith.span.kind",
+         "value": {
+          "stringValue": "llm"
+         }
+        },
+        {
+         "key": "langsmith.trace.name",
+         "value": {
+          "stringValue": "GenericFakeChatModel"
+         }
+        },
+        {
+         "key": "langsmith.trace.session_name",
+         "value": {
+          "stringValue": "default"
+         }
+        },
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chat"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "langchain"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_integration",
+         "value": {
+          "stringValue": "langchain_chat_model"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_step",
+         "value": {
+          "intValue": "1"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_node",
+         "value": {
+          "stringValue": "agent"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_triggers",
+         "value": {
+          "stringValue": "[\"branch:to:agent\"]"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_path",
+         "value": {
+          "stringValue": "[\"__pregel_pull\",\"agent\"]"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_checkpoint_ns",
+         "value": {
+          "stringValue": "agent:b0c55a2a-f589-6dc1-c588-40789dec19d7"
+         }
+        },
+        {
+         "key": "langsmith.metadata.checkpoint_ns",
+         "value": {
+          "stringValue": "agent:b0c55a2a-f589-6dc1-c588-40789dec19d7"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_provider",
+         "value": {
+          "stringValue": "genericfakechatmodel"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_model_type",
+         "value": {
+          "stringValue": "chat"
+         }
+        },
+        {
+         "key": "langsmith.metadata.lc_versions",
+         "value": {
+          "stringValue": "{\"langchain-core\":\"1.6.12\"}"
+         }
+        },
+        {
+         "key": "langsmith.metadata._type",
+         "value": {
+          "stringValue": "generic-fake-chat-model"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_TRACING",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ENABLED",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ONLY",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.span.tags",
+         "value": {
+          "stringValue": "seq:step:1"
+         }
+        },
+        {
+         "key": "gen_ai.serialized.name",
+         "value": {
+          "stringValue": "GenericFakeChatModel"
+         }
+        },
+        {
+         "key": "gen_ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[[{\"lc\":1,\"type\":\"constructor\",\"id\":[\"langchain\",\"schema\",\"messages\",\"SystemMessage\"],\"kwargs\":{\"content\":\"You are MIRA-like ERP assistant. Use tools for stock questions.\",\"type\":\"system\"}},{\"lc\":1,\"type\":\"constructor\",\"id\":[\"langchain\",\"schema\",\"messages\",\"HumanMessage\"],\"kwargs\":{\"content\":\"x\",\"type\":\"human\",\"id\":\"6e94f9d3-a89e-438b-b4fd-9d2cadfd36d8\"}}]]}"
+         }
+        },
+        {
+         "key": "gen_ai.completion",
+         "value": {
+          "stringValue": "{\"generations\":[[{\"text\":\"\",\"generation_info\":null,\"type\":\"ChatGeneration\",\"message\":{\"lc\":1,\"type\":\"constructor\",\"id\":[\"langchain\",\"schema\",\"messages\",\"AIMessage\"],\"kwargs\":{\"content\":\"\",\"type\":\"ai\",\"id\":\"lc_run--01a15e5b-7588-725c-8d6d-4e0cba7f3ccd-0\",\"tool_calls\":[{\"name\":\"get_stock\",\"args\":{\"item\":\"w\"},\"id\":\"c\",\"type\":\"tool_call\"}],\"invalid_tool_calls\":[]}}}]],\"llm_output\":null,\"run\":null,\"type\":\"LLMResult\"}"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 256
+      },
+      {
+       "traceId": "0e9c9896cdae6de2d9860bdb550185ad",
+       "spanId": "a1592d22b80e839c",
+       "parentSpanId": "baa42b364b7ccdb6",
+       "name": "RunnableCallable",
+       "kind": 1,
+       "startTimeUnixNano": "1792584414603539968",
+       "endTimeUnixNano": "1792584414603820032",
+       "attributes": [
+        {
+         "key": "langsmith.span.kind",
+         "value": {
+          "stringValue": "chain"
+         }
+        },
+        {
+         "key": "langsmith.trace.name",
+         "value": {
+          "stringValue": "RunnableCallable"
+         }
+        },
+        {
+         "key": "langsmith.trace.session_name",
+         "value": {
+          "stringValue": "default"
+         }
+        },
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chain"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "langchain"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_integration",
+         "value": {
+          "stringValue": "langgraph"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_step",
+         "value": {
+          "intValue": "1"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_node",
+         "value": {
+          "stringValue": "agent"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_triggers",
+         "value": {
+          "stringValue": "[\"branch:to:agent\"]"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_path",
+         "value": {
+          "stringValue": "[\"__pregel_pull\",\"agent\"]"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_checkpoint_ns",
+         "value": {
+          "stringValue": "agent:b0c55a2a-f589-6dc1-c588-40789dec19d7"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_TRACING",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ENABLED",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ONLY",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.span.tags",
+         "value": {
+          "stringValue": "seq:step:3"
+         }
+        },
+        {
+         "key": "gen_ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[{\"content\":\"x\",\"additional_kwargs\":{},\"response_metadata\":{},\"type\":\"human\",\"id\":\"6e94f9d3-a89e-438b-b4fd-9d2cadfd36d8\"},{\"content\":\"\",\"additional_kwargs\":{},\"response_metadata\":{},\"type\":\"ai\",\"id\":\"lc_run--01a15e5b-7588-725c-8d6d-4e0cba7f3ccd-0\",\"tool_calls\":[{\"name\":\"get_stock\",\"args\":{\"item\":\"w\"},\"id\":\"c\",\"type\":\"tool_call\"}],\"invalid_tool_calls\":[]}]}"
+         }
+        },
+        {
+         "key": "gen_ai.completion",
+         "value": {
+          "stringValue": "{\"output\":\"tools\"}"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 256
+      },
+      {
+       "traceId": "0e9c9896cdae6de2d9860bdb550185ad",
+       "spanId": "bd3714f93b28d28f",
+       "parentSpanId": "34c6bea2493b6e70",
+       "name": "agent",
+       "kind": 1,
+       "startTimeUnixNano": "1792584414760579072",
+       "endTimeUnixNano": "1792584414764389888",
+       "attributes": [
+        {
+         "key": "langsmith.span.kind",
+         "value": {
+          "stringValue": "chain"
+         }
+        },
+        {
+         "key": "langsmith.trace.name",
+         "value": {
+          "stringValue": "agent"
+         }
+        },
+        {
+         "key": "langsmith.trace.session_name",
+         "value": {
+          "stringValue": "default"
+         }
+        },
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chain"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "langchain"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_integration",
+         "value": {
+          "stringValue": "langgraph"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_step",
+         "value": {
+          "intValue": "3"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_node",
+         "value": {
+          "stringValue": "agent"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_triggers",
+         "value": {
+          "stringValue": "[\"branch:to:agent\"]"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_path",
+         "value": {
+          "stringValue": "[\"__pregel_pull\",\"agent\"]"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_checkpoint_ns",
+         "value": {
+          "stringValue": "agent:e30839cc-b0e6-a41b-2754-10d1859624a5"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_TRACING",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ENABLED",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ONLY",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.span.tags",
+         "value": {
+          "stringValue": "graph:step:3"
+         }
+        },
+        {
+         "key": "gen_ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[{\"content\":\"x\",\"additional_kwargs\":{},\"response_metadata\":{},\"type\":\"human\",\"id\":\"6e94f9d3-a89e-438b-b4fd-9d2cadfd36d8\"},{\"content\":\"\",\"additional_kwargs\":{},\"response_metadata\":{},\"type\":\"ai\",\"id\":\"lc_run--01a15e5b-7588-725c-8d6d-4e0cba7f3ccd-0\",\"tool_calls\":[{\"name\":\"get_stock\",\"args\":{\"item\":\"w\"},\"id\":\"c\",\"type\":\"tool_call\"}],\"invalid_tool_calls\":[]},{\"content\":\"{\\\"item\\\": \\\"w\\\", \\\"warehouse\\\": \\\"main\\\", \\\"on_hand\\\": 42, \\\"reserved\\\": 5}\",\"additional_kwargs\":{},\"response_metadata\":{},\"type\":\"tool\",\"name\":\"get_stock\",\"id\":\"872bc4fb-8bcf-495a-8081-5e17a9b99905\",\"tool_call_id\":\"c\",\"status\":\"success\"}]}"
+         }
+        },
+        {
+         "key": "gen_ai.completion",
+         "value": {
+          "stringValue": "{}"
+         }
+        }
+       ],
+       "events": [
+        {
+         "timeUnixNano": "1792584414824804000",
+         "name": "exception",
+         "attributes": [
+          {
+           "key": "exception.type",
+           "value": {
+            "stringValue": "Exception"
+           }
+          },
+          {
+           "key": "exception.message",
+           "value": {
+            "stringValue": "RuntimeError('ERP API timeout while fetching supplier list')Traceback (most recent call last):\n\n\n  File \"/app/site-packages/langgraph/_internal/_runnable.py\", line 707, in invoke\n    input = context.run(step.invoke, input, config, **kwargs)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\n  File \"/app/site-packages/langgraph/_internal/_runnable.py\", line 447, in invoke\n    ret = self.func(*args, **kwargs)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\n  File \"/app/examples/demo_app.py\", line 39, in agent\n    raise RuntimeError(\"ERP API timeout while fetching supplier list\")\n\n\nRuntimeError: ERP API timeout while fetching supplier list"
+           }
+          },
+          {
+           "key": "exception.stacktrace",
+           "value": {
+            "stringValue": "Exception: RuntimeError('ERP API timeout while fetching supplier list')Traceback (most recent call last):\n\n\n  File \"/app/site-packages/langgraph/_internal/_runnable.py\", line 707, in invoke\n    input = context.run(step.invoke, input, config, **kwargs)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\n  File \"/app/site-packages/langgraph/_internal/_runnable.py\", line 447, in invoke\n    ret = self.func(*args, **kwargs)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\n  File \"/app/examples/demo_app.py\", line 39, in agent\n    raise RuntimeError(\"ERP API timeout while fetching supplier list\")\n\n\nRuntimeError: ERP API timeout while fetching supplier list\n"
+           }
+          },
+          {
+           "key": "exception.escaped",
+           "value": {
+            "stringValue": "False"
+           }
+          }
+         ]
+        }
+       ],
+       "status": {
+        "code": 2
+       },
+       "flags": 256
+      },
+      {
+       "traceId": "0e9c9896cdae6de2d9860bdb550185ad",
+       "spanId": "8f928f96ad1777bc",
+       "parentSpanId": "5e6060e9fcfa58cc",
+       "name": "get_stock",
+       "kind": 1,
+       "startTimeUnixNano": "1792584414605648896",
+       "endTimeUnixNano": "1792584414758124032",
+       "attributes": [
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "execute_tool"
+         }
+        },
+        {
+         "key": "langsmith.span.kind",
+         "value": {
+          "stringValue": "tool"
+         }
+        },
+        {
+         "key": "langsmith.trace.name",
+         "value": {
+          "stringValue": "get_stock"
+         }
+        },
+        {
+         "key": "langsmith.trace.session_name",
+         "value": {
+          "stringValue": "default"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "langchain"
+         }
+        },
+        {
+         "key": "gen_ai.tool.name",
+         "value": {
+          "stringValue": "get_stock"
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.id",
+         "value": {
+          "stringValue": "c"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_integration",
+         "value": {
+          "stringValue": "langgraph"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_step",
+         "value": {
+          "intValue": "2"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_node",
+         "value": {
+          "stringValue": "tools"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_triggers",
+         "value": {
+          "stringValue": "[\"branch:to:tools\"]"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_path",
+         "value": {
+          "stringValue": "[\"__pregel_pull\",\"tools\"]"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_checkpoint_ns",
+         "value": {
+          "stringValue": "tools:ef706d54-757a-3770-58c7-cc06a0810407"
+         }
+        },
+        {
+         "key": "langsmith.metadata.checkpoint_ns",
+         "value": {
+          "stringValue": "tools:ef706d54-757a-3770-58c7-cc06a0810407"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_TRACING",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ENABLED",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ONLY",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.span.tags",
+         "value": {
+          "stringValue": "seq:step:1"
+         }
+        },
+        {
+         "key": "gen_ai.prompt",
+         "value": {
+          "stringValue": "{\"item\":\"w\"}"
+         }
+        },
+        {
+         "key": "gen_ai.completion",
+         "value": {
+          "stringValue": "{\"output\":{\"content\":\"{\\\"item\\\": \\\"w\\\", \\\"warehouse\\\": \\\"main\\\", \\\"on_hand\\\": 42, \\\"reserved\\\": 5}\",\"additional_kwargs\":{},\"response_metadata\":{},\"type\":\"tool\",\"name\":\"get_stock\",\"tool_call_id\":\"c\",\"status\":\"success\"}}"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 256
+      },
+      {
+       "traceId": "0e9c9896cdae6de2d9860bdb550185ad",
+       "spanId": "5e6060e9fcfa58cc",
+       "parentSpanId": "34c6bea2493b6e70",
+       "name": "tools",
+       "kind": 1,
+       "startTimeUnixNano": "1792584414604727040",
+       "endTimeUnixNano": "1792584414759249920",
+       "attributes": [
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chain"
+         }
+        },
+        {
+         "key": "langsmith.span.kind",
+         "value": {
+          "stringValue": "chain"
+         }
+        },
+        {
+         "key": "langsmith.trace.name",
+         "value": {
+          "stringValue": "tools"
+         }
+        },
+        {
+         "key": "langsmith.trace.session_name",
+         "value": {
+          "stringValue": "default"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "langchain"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_integration",
+         "value": {
+          "stringValue": "langgraph"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_step",
+         "value": {
+          "intValue": "2"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_node",
+         "value": {
+          "stringValue": "tools"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_triggers",
+         "value": {
+          "stringValue": "[\"branch:to:tools\"]"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_path",
+         "value": {
+          "stringValue": "[\"__pregel_pull\",\"tools\"]"
+         }
+        },
+        {
+         "key": "langsmith.metadata.langgraph_checkpoint_ns",
+         "value": {
+          "stringValue": "tools:ef706d54-757a-3770-58c7-cc06a0810407"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_TRACING",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ENABLED",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ONLY",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.span.tags",
+         "value": {
+          "stringValue": "graph:step:2"
+         }
+        },
+        {
+         "key": "gen_ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[{\"content\":\"x\",\"additional_kwargs\":{},\"response_metadata\":{},\"type\":\"human\",\"id\":\"6e94f9d3-a89e-438b-b4fd-9d2cadfd36d8\"},{\"content\":\"\",\"additional_kwargs\":{},\"response_metadata\":{},\"type\":\"ai\",\"id\":\"lc_run--01a15e5b-7588-725c-8d6d-4e0cba7f3ccd-0\",\"tool_calls\":[{\"name\":\"get_stock\",\"args\":{\"item\":\"w\"},\"id\":\"c\",\"type\":\"tool_call\"}],\"invalid_tool_calls\":[]}]}"
+         }
+        },
+        {
+         "key": "gen_ai.completion",
+         "value": {
+          "stringValue": "{\"messages\":[{\"content\":\"{\\\"item\\\": \\\"w\\\", \\\"warehouse\\\": \\\"main\\\", \\\"on_hand\\\": 42, \\\"reserved\\\": 5}\",\"additional_kwargs\":{},\"response_metadata\":{},\"type\":\"tool\",\"name\":\"get_stock\",\"tool_call_id\":\"c\",\"status\":\"success\"}]}"
+         }
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 256
+      },
+      {
+       "traceId": "0e9c9896cdae6de2d9860bdb550185ad",
+       "spanId": "34c6bea2493b6e70",
+       "name": "LangGraph",
+       "kind": 1,
+       "startTimeUnixNano": "1792584414434930176",
+       "endTimeUnixNano": "1792584414768651008",
+       "attributes": [
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chain"
+         }
+        },
+        {
+         "key": "gen_ai.completion",
+         "value": {
+          "stringValue": "{}"
+         }
+        },
+        {
+         "key": "langsmith.span.kind",
+         "value": {
+          "stringValue": "chain"
+         }
+        },
+        {
+         "key": "langsmith.trace.name",
+         "value": {
+          "stringValue": "LangGraph"
+         }
+        },
+        {
+         "key": "langsmith.trace.session_name",
+         "value": {
+          "stringValue": "default"
+         }
+        },
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "langchain"
+         }
+        },
+        {
+         "key": "langsmith.metadata.ls_integration",
+         "value": {
+          "stringValue": "langgraph"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_TRACING",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ENABLED",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "langsmith.metadata.LANGSMITH_OTEL_ONLY",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "gen_ai.prompt",
+         "value": {
+          "stringValue": "{\"messages\":[{\"content\":\"x\",\"additional_kwargs\":{},\"response_metadata\":{},\"type\":\"human\",\"id\":\"6e94f9d3-a89e-438b-b4fd-9d2cadfd36d8\"}]}"
+         }
+        }
+       ],
+       "events": [
+        {
+         "timeUnixNano": "1792584414825408000",
+         "name": "exception",
+         "attributes": [
+          {
+           "key": "exception.type",
+           "value": {
+            "stringValue": "Exception"
+           }
+          },
+          {
+           "key": "exception.message",
+           "value": {
+            "stringValue": "RuntimeError('ERP API timeout while fetching supplier list')Traceback (most recent call last):\n\n\n  File \"/app/site-packages/langgraph/pregel/main.py\", line 3058, in stream\n    for _ in runner.tick(\n\n\n  File \"/app/site-packages/langgraph/pregel/_runner.py\", line 208, in tick\n    run_with_retry(\n\n\n  File \"/app/site-packages/langgraph/pregel/_retry.py\", line 617, in run_with_retry\n    return task.proc.invoke(task.input, config)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\n  File \"/app/site-packages/langgraph/_internal/_runnable.py\", line 707, in invoke\n    input = context.run(step.invoke, input, config, **kwargs)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\n  File \"/app/site-packages/langgraph/_internal/_runnable.py\", line 447, in invoke\n    ret = self.func(*args, **kwargs)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\n  File \"/app/examples/demo_app.py\", line 39, in agent\n    raise RuntimeError(\"ERP API timeout while fetching supplier list\")\n\n\nRuntimeError: ERP API timeout while fetching supplier list\n\n\nDuring task with name 'agent' and id 'e30839cc-b0e6-a41b-2754-10d1859624a5'"
+           }
+          },
+          {
+           "key": "exception.stacktrace",
+           "value": {
+            "stringValue": "Exception: RuntimeError('ERP API timeout while fetching supplier list')Traceback (most recent call last):\n\n\n  File \"/app/site-packages/langgraph/pregel/main.py\", line 3058, in stream\n    for _ in runner.tick(\n\n\n  File \"/app/site-packages/langgraph/pregel/_runner.py\", line 208, in tick\n    run_with_retry(\n\n\n  File \"/app/site-packages/langgraph/pregel/_retry.py\", line 617, in run_with_retry\n    return task.proc.invoke(task.input, config)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\n  File \"/app/site-packages/langgraph/_internal/_runnable.py\", line 707, in invoke\n    input = context.run(step.invoke, input, config, **kwargs)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\n  File \"/app/site-packages/langgraph/_internal/_runnable.py\", line 447, in invoke\n    ret = self.func(*args, **kwargs)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\n  File \"/app/examples/demo_app.py\", line 39, in agent\n    raise RuntimeError(\"ERP API timeout while fetching supplier list\")\n\n\nRuntimeError: ERP API timeout while fetching supplier list\n\n\nDuring task with name 'agent' and id 'e30839cc-b0e6-a41b-2754-10d1859624a5'\n"
+           }
+          },
+          {
+           "key": "exception.escaped",
+           "value": {
+            "stringValue": "False"
+           }
+          }
+         ]
+        }
+       ],
+       "status": {
+        "code": 1
+       },
+       "flags": 256
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

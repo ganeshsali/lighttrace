@@ -1,11 +1,10 @@
 # lighttrace
 
 A small, self-hosted tracing server with a web UI for **LLM apps and agents**.
-It speaks enough of the LangSmith ingest API that the LangSmith SDK already inside a LangChain or
-LangGraph app sends traces to it — **no code changes**, just environment variables.
-It also accepts **OpenTelemetry** (OTLP over HTTP or gRPC), so apps on other frameworks (LlamaIndex,
-CrewAI, OpenAI Agents, Pydantic AI, Google ADK, Vercel AI SDK, ...) or languages can send traces too —
-see [Supported frameworks](#supported-frameworks).
+It has **one receiver**: OpenTelemetry (OTLP over HTTP) at `/v1/traces`. Every framework and app sends
+there the same way: LangChain and LangGraph (through the LangSmith SDK's OpenTelemetry mode, settings
+only, no code change), LlamaIndex, CrewAI, OpenAI Agents, Pydantic AI, Google ADK, Vercel AI SDK, plain
+OpenTelemetry from any language — see [Supported frameworks](#supported-frameworks).
 
 - One Python process (FastAPI). Storage in **SQLite** (one file, default) or **Postgres**.
   ~50–100 MB RAM; runs comfortably on a 2 CPU / 4 GB box.
@@ -14,7 +13,7 @@ see [Supported frameworks](#supported-frameworks).
 - No frontend build step: plain HTML/CSS/JS served by the same process.
 
 lighttrace is an independent project, not affiliated with or endorsed by LangChain, Inc.
-"LangSmith" is a trademark of LangChain, Inc.; it is named here only to say which SDK lighttrace works with.
+"LangSmith" is a trademark of LangChain, Inc.; it is named here only to say which SDK can send to lighttrace.
 
 ## What the UI does
 
@@ -56,51 +55,52 @@ Light and dark mode, persisted per browser.
 
 ## Point your app at it
 
-In the app you want to trace (any LangChain / LangGraph app; it already has the `langsmith` SDK):
+Every app sends to the same place. In the app you want to trace:
+
+```
+OTEL_EXPORTER_OTLP_ENDPOINT=http://<lighttrace-host>:1984
+OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<project key from the UI>
+OTEL_SERVICE_NAME=myapp
+```
+
+**LangChain / LangGraph**: the `langsmith` SDK they ship can send OpenTelemetry. Add these and change
+no code (`pip install 'langsmith[otel]'` if the OpenTelemetry packages are missing):
 
 ```
 LANGSMITH_TRACING=true
-LANGSMITH_ENDPOINT=http://<lighttrace-host>:1984
-LANGSMITH_API_KEY=<a project key from the UI, or one of LIGHTTRACE_API_KEYS>
-LANGSMITH_PROJECT=myapp-prod
+LANGSMITH_OTEL_ENABLED=true
+LANGSMITH_OTEL_ONLY=true      # send only to lighttrace, never to LangSmith's cloud
 ```
 
-### API keys
+Short scripts must let the SDK flush before exiting (see [`examples/demo_app.py`](examples/demo_app.py)).
+To group turns into threads, put `thread_id` (or `session_id` / `conversation_id`) in the run's
+metadata, e.g. `config={"metadata": {"thread_id": ...}}`.
 
-Each project has a **Keys** tab: create a key (it is shown once, copy it then), see when each key was
-last used, revoke it. A project key can only write to its own project: whatever project name the app
-sends (`LANGSMITH_PROJECT`, `x-lighttrace-project`, `service.name`) is ignored and its traces land in
-the key's project. To start a new project, use **+ New project** on the projects page.
-Only a SHA-256 hash and the first 10 characters of each key are stored.
-
-Keys in `LIGHTTRACE_API_KEYS` are **admin keys**: they write to any project, chosen by the app as
-before. Keep them for yourself; give each app or team a project key.
-
-The root run id shown in the UI is the same id LangSmith would have given you, so code that stores
-`run_id` keeps working. To group turns into threads, put `thread_id` (or `session_id` /
-`conversation_id`) in the run's metadata, e.g. `config={"metadata": {"thread_id": ...}}`.
+**Other frameworks**: add their instrumentor or turn on their built-in OpenTelemetry; each one's setup
+is in [docs/](docs/README.md).
 
 Some apps load `.env` in a way that never reaches the SDK (pydantic-settings, for one). If traces
 do not arrive, export the variables in the shell, or have the app copy its own settings into
 `os.environ`.
 
-### Or send OpenTelemetry
+### The receiver
 
-Any app instrumented with OpenTelemetry can export to `POST /v1/traces` (OTLP over HTTP, protobuf or
-JSON, optionally gzip). For example, LlamaIndex, CrewAI, the raw OpenAI SDK, or non-Python apps.
-`POST /v1/logs` takes the prompt/response content that the official OTel GenAI instrumentations send as
-log events, and `POST /v1/metrics` is accepted and dropped (so exporters don't error). OTLP over **gRPC**
-works too: `pip install 'lighttrace[grpc]'` and set `LIGHTTRACE_GRPC_PORT=4317`.
+`POST /v1/traces` takes OTLP over HTTP, protobuf or JSON, optionally gzip. Next to it, as part of the
+same OpenTelemetry standard, `POST /v1/logs` takes the prompt/response content that the official OTel
+GenAI instrumentations send as log events, and `POST /v1/metrics` is accepted and dropped (so exporters
+don't error). There is no other way in.
 
-```
-OTEL_EXPORTER_OTLP_ENDPOINT=http://<lighttrace-host>:1984
-OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
-OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<project key>
-```
+### API keys
 
-With a project key the project is the key's. With an admin key it comes from the
-`x-lighttrace-project` header, else the `service.name` resource attribute (`OTEL_SERVICE_NAME`), else
-`default`.
+Each project has a **Keys** tab: create a key (it is shown once, copy it then), see when each key was
+last used, revoke it. A project key can only write to its own project: whatever project the app asks
+for (`x-lighttrace-project`, `service.name`) is ignored and its traces land in the key's project. To
+start a new project, use **+ New project** on the projects page. Only a SHA-256 hash and the first 10
+characters of each key are stored.
+
+Keys in `LIGHTTRACE_API_KEYS` are **admin keys**: they write to any project. The project then comes from
+the `x-lighttrace-project` header, else `service.name` (`OTEL_SERVICE_NAME`), else `default`. Keep them
+for yourself; give each app or team a project key.
 
 ### Supported frameworks
 
@@ -111,9 +111,8 @@ vendor's docs only.
 
 | Framework | Route | Status |
 |---|---|---|
-| [LangChain / LangGraph](docs/langgraph.md) | LangSmith SDK, env vars only | end to end (`test_e2e.py`) |
+| [LangChain / LangGraph](docs/langgraph.md) | LangSmith SDK in OTel mode, settings only | end to end (`test_e2e.py`); real payloads |
 | [LangChain / LangGraph](docs/langgraph.md) | OpenInference | end to end (`examples/otel_demo.py`) |
-| [LangChain](docs/langchain.md) | LangSmith SDK in OTel mode | real payload |
 | [LlamaIndex](docs/llamaindex.md) | OpenInference | end to end |
 | [OpenAI Agents SDK](docs/openai-agents.md) | OpenInference | end to end |
 | [CrewAI](docs/crewai.md) | OpenInference | run by hand (see its page); skips in tests |
@@ -123,7 +122,7 @@ vendor's docs only.
 | [Mastra](docs/builtin-otel.md#vercel-ai-sdk-and-mastra-javascript) | via the AI SDK's spans | documented |
 | [Strands Agents](docs/builtin-otel.md#strands-agents-documented-only) | built-in OTel | documented |
 | [Semantic Kernel](docs/builtin-otel.md#semantic-kernel-documented-only) | built-in OTel | documented |
-| Langfuse SDK v3 | `LANGFUSE_HOST` pointed here | end to end; real payload |
+| Langfuse SDK v3 | your exporter passed as `tracer_provider` | real payload; run by hand |
 | MLflow Tracing | OTLP export | real payload |
 | OpenAI SDK | official `opentelemetry-instrumentation-openai-v2` | real payload (spans + log events) |
 | Many LLM clients | [OpenLLMetry](docs/README.md#openllmetry-one-alternative-for-all-of-them) / OpenLIT | real payloads |
@@ -131,14 +130,12 @@ vendor's docs only.
 
 ### Supported transports & dialects
 
-| Transport | Status |
+| Receiver (all on port 1984) | Status |
 |---|---|
 | OTLP/HTTP protobuf on `/v1/traces` (gzip ok) | tested with the real Python exporter; the JS exporter by hand |
 | OTLP/HTTP JSON, ids hex (spec) or base64 | tested |
 | OTLP `/v1/logs` (protobuf + JSON), GenAI events only | tested with real payloads |
 | OTLP `/v1/metrics` | accepted and dropped (one warning) |
-| OTLP/gRPC on `LIGHTTRACE_GRPC_PORT` (`lighttrace[grpc]`) | tested with the real Python gRPC exporters (traces + logs) |
-| LangSmith `/runs/batch`, `/runs`, `PATCH /runs/{id}` | tested with the real LangSmith SDK |
 
 | Dialect (span attributes) | Mapped | Status |
 |---|---|---|
@@ -150,7 +147,7 @@ vendor's docs only.
 | Vercel AI SDK / Mastra | `ai.operationId`, `ai.prompt(.messages)`, `ai.response.text`/`toolCalls`, `ai.usage.*`, `ai.model.id`, `ai.toolCall.*`, `ai.settings.*`, `ai.telemetry.metadata.*` | real |
 | Langfuse SDK v3 | `langfuse.observation.*`, `langfuse.trace.*`, `session.id` | real |
 | MLflow | `mlflow.spanType`, `mlflow.spanInputs`/`spanOutputs`, `mlflow.chat.tokenUsage` or OpenAI-style `usage` | real |
-| LangSmith OTel mode | `langsmith.span.kind`, `langsmith.metadata.*`, `langsmith.span.tags`, JSON `gen_ai.prompt`/`completion` | real |
+| LangSmith OTel mode | `langsmith.span.kind`, `langsmith.metadata.*`, `langsmith.span.tags`, JSON `gen_ai.prompt`/`completion`; an exception on a span counts as an error (the SDK marks failed roots OK) | real |
 | Google ADK | `gcp.vertex.agent.llm_request`/`llm_response` as chat, `tool_call_args`/`tool_response` | real (1.10 and 2.12) |
 | Pydantic AI / Logfire | GenAI attributes, `pydantic_ai.all_messages` + `final_result`, pre-1.0 `events`/`all_messages_events`; `logfire.json_schema` decodes JSON attributes | real |
 
@@ -169,11 +166,10 @@ flag) hangs under a root for its service's part; if that service is entered seve
 the root spans all of them. The remote parent's span id stays in the span's `otel.remote_parent_span_id`
 metadata. Give each service its own `service.name` (`OTEL_SERVICE_NAME`).
 
-**Langfuse SDK v3**: no code change, point it here: `LANGFUSE_HOST=http://<lighttrace-host>:1984`,
-`LANGFUSE_SECRET_KEY=<lighttrace key>`, `LANGFUSE_PUBLIC_KEY=<anything>`. lighttrace accepts its
-`/api/public/otel/v1/traces` endpoint and Basic auth (the secret key is checked as the API key).
-
-For a LangChain app, the LangSmith route above gives richer traces; OTel is for everything else.
+**Langfuse SDK v3** apps: give the SDK your own exporter, `Langfuse(tracer_provider=provider)` with
+`provider` set up as in [docs/](docs/README.md#the-opentelemetry-settings-every-page-uses). The SDK also
+keeps trying to send to its own `LANGFUSE_HOST`, which logs warnings when that isn't a Langfuse server;
+for a new app, an OpenInference or OpenLLMetry instrumentor is the cleaner route.
 
 ## Run it
 
@@ -187,7 +183,7 @@ lighttrace                          # http://127.0.0.1:1984  (--host, --port, --
 `lighttrace` reads `.env` from the current directory (variables already set in the shell win).
 A good key: `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`.
 
-Docker (the image includes Postgres and OTLP/gRPC support):
+Docker (the image includes Postgres support):
 
 ```bash
 docker build -t lighttrace .
@@ -197,8 +193,7 @@ docker run -d --name lighttrace --restart unless-stopped \
 ```
 
 The image binds `0.0.0.0` inside the container and stores SQLite at `/data/lighttrace.db`;
-`-p 127.0.0.1:…` keeps it private on the host. For OTLP/gRPC add `-e LIGHTTRACE_GRPC_PORT=4317
--p 127.0.0.1:4317:4317`.
+`-p 127.0.0.1:…` keeps it private on the host.
 
 ### Postgres
 
@@ -223,7 +218,6 @@ All config is environment variables — see [.env.example](.env.example).
 | `LIGHTTRACE_RETENTION_DAYS` | `30` | Delete traces older than this, checked hourly. `0` keeps forever |
 | `LIGHTTRACE_PRICES` | — | Cost tracking: `{"model": [usd_per_1M_input, usd_per_1M_output]}` inline or a JSON file path. Exact or prefix match on model name |
 | `LIGHTTRACE_HOST` / `LIGHTTRACE_PORT` | `127.0.0.1` / `1984` | Bind address |
-| `LIGHTTRACE_GRPC_PORT` | `0` (off) | OTLP/gRPC port, usually `4317`. Needs `pip install 'lighttrace[grpc]'` |
 | `LIGHTTRACE_COOKIE_SECURE` | `false` | Set `true` behind HTTPS |
 | `LIGHTTRACE_MAX_BODY_MB` | `50` | Max ingest body (after gzip) |
 
@@ -251,7 +245,7 @@ traces.203-0-113-7.sslip.io {
 ```
 
 Then set `LIGHTTRACE_COOKIE_SECURE=true` and point apps at
-`LANGSMITH_ENDPOINT=https://traces.203-0-113-7.sslip.io`. If the app runs on the same server,
+`OTEL_EXPORTER_OTLP_ENDPOINT=https://traces.203-0-113-7.sslip.io`. If the app runs on the same server,
 `http://127.0.0.1:1984` is simpler and skips TLS.
 
 ## Retention and storage
@@ -267,35 +261,28 @@ Run payloads are never logged — they usually hold user and business data.
 
 ## Limits
 
-- **Tracing only.** No feedback, datasets, experiments/evaluations, annotation queues, prompt hub
-  or playground. Other LangSmith endpoints return 404 and log one warning per endpoint.
+- **Tracing only, one receiver.** No feedback, datasets, experiments/evaluations, annotation queues,
+  prompt hub or playground, and no LangSmith-style or vendor-specific ingest APIs: an app that still
+  calls the old LangSmith API (`/runs/batch`, `/info`) gets 404 and the server logs, once, how to switch
+  it to OpenTelemetry mode.
 - **No public share links**, on purpose: a share link publishes every prompt and tool result to
   anyone holding it.
-- **No multipart or zstd ingest.** `/info` tells the SDK to use JSON `/runs/batch`; `/runs/multipart`
-  returns 404, which makes the SDK fall back. gzip bodies are accepted. If lighttrace is down when
-  your app starts, the SDK tries multipart first, gets the 404 once the server is back and switches
-  to `/runs/batch` by itself (verified). Traces produced while the server is down are lost — the SDK
-  does not buffer to disk.
-- **Traces only.** OTLP logs are read for GenAI content only (other log records are dropped);
-  metrics are dropped. gRPC needs the `grpc` extra and its own port; it has no TLS of its own, so
-  keep it on a private network or behind a TLS proxy.
+- **OTLP over HTTP only** (protobuf or JSON, gzip ok; no zstd). Exporters set to gRPC must be switched
+  to `http/protobuf` (`OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf`). OTLP logs are read for GenAI content
+  only; metrics are dropped. Traces produced while lighttrace is down are lost once the exporter's
+  short retry gives up — exporters don't buffer to disk.
 - Text search is a `LIKE`/`ILIKE` scan; percentiles and dashboards are computed over the selected
   time window in Python. Fine for hundreds of thousands of traces; at many millions, narrow the
   window or add database-side indexes (e.g. `pg_trgm`).
 - Single admin password, no users/roles. Anyone who can log in sees every project and can create keys.
-- Verified against `langsmith` 0.14.x (what `langchain-core` 1.x installs).
+- LangChain's OpenTelemetry mode verified with `langsmith` 0.14.x (what `langchain-core` 1.x installs).
 
 ## API
 
-Ingest (LangSmith-compatible, `x-api-key`): `GET /info`, `POST /runs/batch`, `POST /runs`,
-`PATCH /runs/{id}`. A patch may arrive before its post; both merge into one row. With a project key,
-runs go into the key's project, and runs that already belong to another project are left alone.
-
-OpenTelemetry (`x-api-key`, `Authorization: Bearer <key>`, or Basic with the key as password):
-`POST /v1/traces` (also at `/api/public/otel/v1/traces` for the Langfuse SDK), `POST /v1/logs`,
-`POST /v1/metrics` (accepted, dropped); OTLP/HTTP protobuf or JSON (ids hex or base64). On
-`LIGHTTRACE_GRPC_PORT`: the OTLP/gRPC `TraceService`, `LogsService` and `MetricsService` with the key in
-`x-api-key` or `authorization` metadata.
+Ingest, the one receiver (key in `x-api-key` or `Authorization: Bearer <key>`): `POST /v1/traces`,
+`POST /v1/logs`, `POST /v1/metrics` (accepted, dropped); OTLP/HTTP protobuf or JSON (ids hex or
+base64). With a project key, runs go into the key's project, and runs that already belong to another
+project are left alone.
 
 UI JSON (session cookie; writes also need the `x-lighttrace: 1` header):
 `GET /api/projects`, `GET /api/projects/{p}/runs?scope=traces|runs&…filters`,
@@ -316,8 +303,9 @@ python3.11 -m venv .venv && .venv/bin/pip install -e '.[test]'
 .venv/bin/pip install llama-index-core openinference-instrumentation-llama-index pydantic-ai-slim
 LIGHTTRACE_TEST_PG=postgresql://user@127.0.0.1/lighttrace_test .venv/bin/pytest   # also on Postgres
 # sample traces (fake model, 3 threads) into a running server:
-LANGSMITH_TRACING=true LANGSMITH_ENDPOINT=http://127.0.0.1:1984 LANGSMITH_API_KEY=<key> \
-  LANGSMITH_PROJECT=demo .venv/bin/python examples/demo_app.py
+LANGSMITH_TRACING=true LANGSMITH_OTEL_ENABLED=true LANGSMITH_OTEL_ONLY=true \
+  OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:1984 OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<key> \
+  OTEL_SERVICE_NAME=demo .venv/bin/python examples/demo_app.py
 ```
 
 The Postgres test database is wiped by the tests; never point it at real data.

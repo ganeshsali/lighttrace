@@ -1,7 +1,10 @@
 """Sample traced LangGraph app with a fake model (no LLM calls, no code changes for tracing).
+The LangSmith SDK inside LangChain sends OpenTelemetry to lighttrace's one receiver:
 
-    LANGSMITH_TRACING=true LANGSMITH_ENDPOINT=http://127.0.0.1:1984 \
-    LANGSMITH_API_KEY=<key> LANGSMITH_PROJECT=demo python examples/demo_app.py
+    pip install 'langsmith[otel]' langgraph
+    LANGSMITH_TRACING=true LANGSMITH_OTEL_ENABLED=true LANGSMITH_OTEL_ONLY=true \
+    OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:1984 OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<key> \
+    OTEL_SERVICE_NAME=demo python examples/demo_app.py
 """
 
 import time
@@ -85,6 +88,8 @@ def main():
          "nightly summary", {"tags": ["batch"]})  # no thread: a standalone trace
 
     wait_for_all_tracers()
+    from opentelemetry import trace
+    getattr(trace.get_tracer_provider(), "shutdown", lambda: None)()  # flush what LangSmith's OTel mode queued
     print("sent 6 traces (3 threads)")
 
 
