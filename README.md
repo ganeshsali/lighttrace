@@ -9,7 +9,7 @@ OpenTelemetry from any language — see [Supported frameworks](#supported-framew
 - One Python process (FastAPI). Storage in **SQLite** (one file, default) or **Postgres**.
   ~50–100 MB RAM; runs comfortably on a 2 CPU / 4 GB box.
 - Keep traces for N days or **forever** (`LIGHTTRACE_RETENTION_DAYS=0`).
-- Ingest protected by API keys (per project, created in the UI), UI by a password. Binds `127.0.0.1` by default.
+- Ingest protected by API keys (`LIGHTTRACE_API_KEYS`), UI by a password. Binds `127.0.0.1` by default.
 - No frontend build step: plain HTML/CSS/JS served by the same process.
 
 lighttrace is an independent project, not affiliated with or endorsed by LangChain, Inc.
@@ -59,8 +59,8 @@ Every app sends to the same place. In the app you want to trace:
 
 ```
 OTEL_EXPORTER_OTLP_ENDPOINT=http://<lighttrace-host>:1984
-OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<project key from the UI>
-OTEL_SERVICE_NAME=myapp
+OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<one of LIGHTTRACE_API_KEYS>
+OTEL_SERVICE_NAME=myapp       # the project name; created on its first trace
 ```
 
 **LangChain / LangGraph**: the `langsmith` SDK they ship can send OpenTelemetry. Add these and change
@@ -90,17 +90,14 @@ same OpenTelemetry standard, `POST /v1/logs` takes the prompt/response content t
 GenAI instrumentations send as log events, and `POST /v1/metrics` is accepted and dropped (so exporters
 don't error). There is no other way in.
 
-### API keys
+### API keys and projects
 
-Each project has a **Keys** tab: create a key (it is shown once, copy it then), see when each key was
-last used, revoke it. A project key can only write to its own project: whatever project the app asks
-for (`x-lighttrace-project`, `service.name`) is ignored and its traces land in the key's project. To
-start a new project, use **+ New project** on the projects page. Only a SHA-256 hash and the first 10
-characters of each key are stored.
+Only the keys listed in `LIGHTTRACE_API_KEYS` (comma-separated) are accepted; anything else gets 401.
+Give each app or team its own key, and remove a key from the list (then restart) to shut that app out.
 
-Keys in `LIGHTTRACE_API_KEYS` are **admin keys**: they write to any project. The project then comes from
-the `x-lighttrace-project` header, else `service.name` (`OTEL_SERVICE_NAME`), else `default`. Keep them
-for yourself; give each app or team a project key.
+Projects need no setup. Each trace goes to the project named by the `x-lighttrace-project` header,
+else the app's `service.name` (`OTEL_SERVICE_NAME`), else `default`; a new name creates the project on
+its first trace.
 
 ### Supported frameworks
 
@@ -176,7 +173,7 @@ for a new app, an OpenInference or OpenLLMetry instrumentor is the cleaner route
 ```bash
 pip install .                       # SQLite only
 pip install '.[postgres]'           # with Postgres support
-cp .env.example .env                # then set LIGHTTRACE_PASSWORD
+cp .env.example .env                # then set LIGHTTRACE_API_KEYS and LIGHTTRACE_PASSWORD
 lighttrace                          # http://127.0.0.1:1984  (--host, --port, --db override)
 ```
 
@@ -212,7 +209,7 @@ All config is environment variables — see [.env.example](.env.example).
 
 | Variable | Default | |
 |---|---|---|
-| `LIGHTTRACE_API_KEYS` | — | Comma-separated **admin** ingest keys: may write to any project. Optional; per-project keys are created in the UI |
+| `LIGHTTRACE_API_KEYS` | — (required) | Comma-separated ingest keys; only these are accepted. Use one per app or team so you can remove one without touching the others |
 | `LIGHTTRACE_PASSWORD` | — (required) | UI admin password. Changing it logs everyone out |
 | `LIGHTTRACE_DB` | `lighttrace.db` | SQLite file path, or `postgresql://…` URL |
 | `LIGHTTRACE_RETENTION_DAYS` | `30` | Delete traces older than this, checked hourly. `0` keeps forever |
@@ -222,7 +219,8 @@ All config is environment variables — see [.env.example](.env.example).
 | `LIGHTTRACE_MAX_BODY_MB` | `50` | Max ingest body (after gzip) |
 
 Several apps or environments share one server as separate projects (e.g. `myapp-staging`,
-`myapp-prod`), each with its own keys. With an admin key, projects are created on first trace.
+`myapp-prod`). There is no project setup: a project appears with its first trace, named by the app's
+`OTEL_SERVICE_NAME`.
 
 ## HTTPS with Caddy
 
@@ -274,15 +272,15 @@ Run payloads are never logged — they usually hold user and business data.
 - Text search is a `LIKE`/`ILIKE` scan; percentiles and dashboards are computed over the selected
   time window in Python. Fine for hundreds of thousands of traces; at many millions, narrow the
   window or add database-side indexes (e.g. `pg_trgm`).
-- Single admin password, no users/roles. Anyone who can log in sees every project and can create keys.
+- Single admin password, no users/roles. Anyone who can log in sees every project. Any valid API key
+  can write to any project.
 - LangChain's OpenTelemetry mode verified with `langsmith` 0.14.x (what `langchain-core` 1.x installs).
 
 ## API
 
 Ingest, the one receiver (key in `x-api-key` or `Authorization: Bearer <key>`): `POST /v1/traces`,
 `POST /v1/logs`, `POST /v1/metrics` (accepted, dropped); OTLP/HTTP protobuf or JSON (ids hex or
-base64). With a project key, runs go into the key's project, and runs that already belong to another
-project are left alone.
+base64).
 
 UI JSON (session cookie; writes also need the `x-lighttrace: 1` header):
 `GET /api/projects`, `GET /api/projects/{p}/runs?scope=traces|runs&…filters`,

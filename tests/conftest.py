@@ -24,7 +24,7 @@ def db_target(request, tmp_path):
     import psycopg
 
     with psycopg.connect(PG_URL, autocommit=True) as c:
-        c.execute("DROP TABLE IF EXISTS runs, projects, saved_filters, api_keys")
+        c.execute("DROP TABLE IF EXISTS runs, projects, saved_filters")
     return PG_URL
 
 

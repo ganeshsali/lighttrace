@@ -243,5 +243,3 @@ details.turn > summary { list-style: none; cursor: pointer; } details.turn > sum
   .charts, .tops { grid-template-columns: 1fr; }
   .wf-row { grid-template-columns: 1fr; } .wf-track { display: none; }
 }
-.newkey { padding: 12px 14px; margin-bottom: 12px; display: grid; gap: 8px; border-color: var(--accent); }
-.newkey code { word-break: break-all; }

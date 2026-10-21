@@ -31,8 +31,7 @@ Runnable: [`examples/demo_app.py`](../examples/demo_app.py) (fake chat model, no
 end to end in `tests/test_e2e.py`, which also checks that nothing is sent to LangSmith's cloud.
 
 **Moving an app from older lighttrace versions:** replace `LANGSMITH_ENDPOINT`, `LANGSMITH_API_KEY` and
-`LANGSMITH_PROJECT` with the settings above. The project now comes from the key (or `OTEL_SERVICE_NAME`
-with an admin key).
+`LANGSMITH_PROJECT` with the settings above. The project name now comes from `OTEL_SERVICE_NAME`.
 
 ## Option 2: OpenInference
 

@@ -13,19 +13,19 @@ Every framework below sends there, with libraries the app may already use:
 | [Frameworks with built-in OpenTelemetry](builtin-otel.md) | Pydantic AI, Google ADK, Strands, Semantic Kernel, Vercel AI SDK / Mastra |
 | [Plain OpenTelemetry](manual-otel.md) | Anything else: your own spans, any language |
 
-Everything below needs a running lighttrace and an API key: open the project's **Keys** tab
-(or **+ New project**) and create one. In the examples the server is `http://127.0.0.1:1984`.
+Everything below needs a running lighttrace and one of its `LIGHTTRACE_API_KEYS`. In the examples the
+server is `http://127.0.0.1:1984`.
 
 ## The OpenTelemetry settings every page uses
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:1984
 export OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<your key>
-export OTEL_SERVICE_NAME=my-app        # names the project when you use an admin key
+export OTEL_SERVICE_NAME=my-app        # the project; created on its first trace
 ```
 
 Use the HTTP protocol (the default in Python; set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` where the
-default is gRPC). With a project key, traces always land in that key's project. The standard OpenTelemetry exporter
+default is gRPC). The standard OpenTelemetry exporter
 reads these variables, so the Python setup is the same three lines everywhere:
 
 ```python

@@ -6,12 +6,9 @@ SQL is written once with `?` placeholders; the few dialect differences are
 the helpers on `_DB`.
 """
 
-import hashlib
-import hmac
 import json
 import math
 import re
-import secrets
 import sqlite3
 import statistics
 import threading
@@ -37,9 +34,6 @@ SCHEMA = [
     "CREATE TABLE IF NOT EXISTS runs (" + ", ".join(f"{k} {v}" for k, v in COLUMNS.items()) + ")",
     "CREATE TABLE IF NOT EXISTS saved_filters (id TEXT PRIMARY KEY, project TEXT NOT NULL, name TEXT NOT NULL, "
     "query TEXT NOT NULL, created_at {F} NOT NULL)",
-    # Per-project ingest keys: only a SHA-256 of the key is stored, plus a short prefix to recognise it.
-    "CREATE TABLE IF NOT EXISTS api_keys (id TEXT PRIMARY KEY, project TEXT NOT NULL, name TEXT NOT NULL, "
-    "prefix TEXT NOT NULL, hash TEXT NOT NULL UNIQUE, created_at {F} NOT NULL, last_used_at {F})",
 ]
 INDEXES = [
     "CREATE INDEX IF NOT EXISTS ix_runs_project_root ON runs(project, is_root, start_time)",
@@ -117,10 +111,6 @@ def _thread_id(extra):
         if meta.get(k) not in (None, ""):
             return str(meta[k])
     return None
-
-
-def _key_hash(key):
-    return hashlib.sha256(key.encode()).hexdigest()
 
 
 def _first_token(events, start):
@@ -304,23 +294,18 @@ class Store:
 
     # ---------- ingest ----------
 
-    def upsert_runs(self, runs, project=None):
-        """Insert or merge runs. Posts and patches merge the same way: non-null
-        incoming fields win and extra is merged one level deep, so a patch that
-        arrives before its post is fine. With `project` (a project key's), every run
-        goes into that project and runs that already live in another one are skipped."""
+    def upsert_runs(self, runs):
+        """Insert or merge runs. Full runs and partial updates merge the same way: non-null
+        incoming fields win and extra is merged one level deep, so an update that
+        arrives before its run is fine."""
         now = time.time()
         with self.db.tx():
             for run in runs:
-                if project:
-                    run = {**run, "session_name": project}
-                self._upsert(run, now, project)
+                self._upsert(run, now)
 
-    def _upsert(self, run, now, only_project=None):
+    def _upsert(self, run, now):
         run_id = str(run["id"])
         rows = self.db.q("SELECT * FROM runs WHERE id = ?", (run_id,))
-        if only_project and rows and rows[0]["project"] not in (None, only_project):
-            return
         cur = {c: None for c in COLUMNS}
         cur.update(rows[0] if rows else {"id": run_id})
         for col in JSON_COLS:
@@ -391,7 +376,7 @@ class Store:
                 (cur["project"], now, now),
             )
 
-    def attach_messages(self, items, project=None):
+    def attach_messages(self, items):
         """Messages from OTel GenAI log events (otel.log_messages) onto their span's run. The span may
         not have arrived yet: then they wait in a project-less row that the span's upsert fills in
         (a root span absorbs it, see _upsert). Content the span carried itself is never replaced."""
@@ -404,8 +389,6 @@ class Store:
                 if not row and root and json.loads(root["extra"] or "{}").get("metadata", {}).get(
                         "otel.span_id") == it["span"]:
                     row = root
-                if row and project and row["project"] not in (None, project):
-                    continue
                 extra = json.loads(row["extra"] or "{}") if row else {}
                 done = extra.get("log_messages") or []
                 cur = json.loads(row[it["side"]] or "null") if row else None
@@ -615,47 +598,13 @@ class Store:
             "SELECT * FROM runs WHERE trace_id = ? ORDER BY dotted_order, start_time", (trace_id,))]
         if not runs:
             return None
-        root = next((r for r in runs if r["is_root"]), runs[0])
-        runs = [r for r in runs if r["project"] in (root["project"], None)]  # other projects can't add to it
         for r in runs:
             r["cost"] = self.prices.cost(r["model"], r["input_tokens"], r["output_tokens"])
+        root = next((r for r in runs if r["is_root"]), runs[0])
         runs = _tree_order(runs, root)
         self._first_tokens([root])
         return {"trace_id": trace_id, "project": root["project"], "thread_id": root["thread_id"],
                 "runs": runs}
-
-    # ---------- api keys ----------
-
-    def create_key(self, project, name):
-        """A new ingest key for one project. The key itself is returned once and never stored."""
-        key = "lt_" + secrets.token_urlsafe(32)
-        row = {"id": uuid.uuid4().hex, "project": project, "name": name, "prefix": key[:10],
-               "created_at": time.time(), "last_used_at": None}
-        with self.db.tx():
-            self.db.execute("INSERT INTO api_keys (id, project, name, prefix, hash, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                            (row["id"], project, name, row["prefix"], _key_hash(key), row["created_at"]))
-            self.db.execute("INSERT INTO projects (name, created_at, last_activity) VALUES (?, ?, ?) "
-                            "ON CONFLICT (name) DO NOTHING", (project, row["created_at"], row["created_at"]))
-        return {**row, "key": key}
-
-    def keys(self, project):
-        return self.db.q("SELECT id, project, name, prefix, created_at, last_used_at FROM api_keys "
-                         "WHERE project = ? ORDER BY created_at", (project,))
-
-    def delete_key(self, key_id):
-        with self.db.tx():
-            return self.db.execute("DELETE FROM api_keys WHERE id = ?", (key_id,)).rowcount
-
-    def key_project(self, key):
-        """The project a key may write to, or None for an unknown/revoked key."""
-        h = _key_hash(key)
-        rows = self.db.q("SELECT id, project, hash, last_used_at FROM api_keys WHERE hash = ?", (h,))
-        if not rows or not hmac.compare_digest(rows[0]["hash"], h):
-            return None
-        now = time.time()
-        if (rows[0]["last_used_at"] or 0) < now - 60:  # one write a minute per key is plenty
-            self.db.execute("UPDATE api_keys SET last_used_at = ? WHERE id = ?", (now, rows[0]["id"]))
-        return rows[0]["project"]
 
     def stats(self, project, since=None, until=None):
         """Aggregate stats for a project over a time window (LangSmith's project sidebar)."""
@@ -758,8 +707,7 @@ class Store:
 
     def delete_project(self, project):
         with self.db.tx():
-            for table, col in (("saved_filters", "project"), ("api_keys", "project"), ("runs", "project"),
-                               ("projects", "name")):
+            for table, col in (("saved_filters", "project"), ("runs", "project"), ("projects", "name")):
                 self.db.execute(f"DELETE FROM {table} WHERE {col} = ?", (project,))
 
     def delete_older_than(self, cutoff):

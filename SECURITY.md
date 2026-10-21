@@ -15,7 +15,7 @@ Fixes go into the latest release only.
 
 - lighttrace binds `127.0.0.1` by default. Expose it through a TLS reverse proxy (see the README's
   Caddy section) and set `LIGHTTRACE_COOKIE_SECURE=true`.
-- Give each app a **project key** (UI → project → Keys) instead of an admin key from
-  `LIGHTTRACE_API_KEYS`; a project key can only write to its own project and can be revoked.
+- Give each app its own key in `LIGHTTRACE_API_KEYS` (long and random, e.g.
+  `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`), so one can be removed without the others.
 - Traces usually contain user data (prompts, answers, tool results). Set a retention period and limit
   who has the UI password.

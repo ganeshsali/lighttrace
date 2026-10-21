@@ -52,6 +52,8 @@ class Settings:
     prices: dict = field(default_factory=lambda: _load_prices(os.environ.get("LIGHTTRACE_PRICES", "")))
 
     def validate(self):
+        if not self.api_keys:
+            raise SystemExit("lighttrace: set LIGHTTRACE_API_KEYS (comma-separated ingest keys)")
         if not self.password:
             raise SystemExit("lighttrace: set LIGHTTRACE_PASSWORD (UI admin password)")
 
@@ -127,20 +129,16 @@ def create_app(settings=None):
 
     # ---------- ingest ----------
 
-    admin_keys = [k.encode() for k in settings.api_keys]
+    api_keys = [k.encode() for k in settings.api_keys]
 
     def check_key(request):
-        """None for an admin key (LIGHTTRACE_API_KEYS, any project), else the project key's project."""
+        """Only keys listed in LIGHTTRACE_API_KEYS get in."""
         key = request.headers.get("x-api-key") or ""
         auth = request.headers.get("authorization") or ""
         if not key and auth.lower().startswith("bearer "):
             key = auth[7:]
-        if key and any(hmac.compare_digest(key.encode(), k) for k in admin_keys):
-            return None
-        project = store.key_project(key) if key else None
-        if not project:
+        if not (key and any(hmac.compare_digest(key.encode(), k) for k in api_keys)):
             raise HTTPException(401, "invalid api key")
-        return project
 
     async def read_body(request):
         body = await request.body()
@@ -159,9 +157,9 @@ def create_app(settings=None):
         return body
 
     async def otlp(request, kind):
-        """One OTLP/HTTP export (protobuf or JSON). Project: the project key's, else the
-        x-lighttrace-project header, else service.name."""
-        project = check_key(request)
+        """One OTLP/HTTP export (protobuf or JSON). Project: the x-lighttrace-project header, else
+        service.name (OTEL_SERVICE_NAME), else "default"; created on its first trace."""
+        check_key(request)
         body = await read_body(request)
         ctype = (request.headers.get("content-type") or "").lower()
         if "protobuf" not in ctype and "json" not in ctype:
@@ -173,12 +171,12 @@ def create_app(settings=None):
         else:
             try:
                 req = otel.parse(body, ctype, kind)
-                data = (otel.to_runs(req, project or request.headers.get("x-lighttrace-project")) if kind == "traces"
+                data = (otel.to_runs(req, request.headers.get("x-lighttrace-project")) if kind == "traces"
                         else otel.log_messages(req))
             except Exception as e:  # untrusted payload: any shape error is the sender's
                 warn_once(("otlp-bad", type(e).__name__), "rejected OTLP payload: %s", type(e).__name__)
                 raise HTTPException(400, "invalid OTLP payload")
-            (store.upsert_runs if kind == "traces" else store.attach_messages)(data, project)
+            (store.upsert_runs if kind == "traces" else store.attach_messages)(data)
         if "protobuf" in ctype:  # an empty Export*ServiceResponse
             return Response(b"", media_type="application/x-protobuf")
         return {}
@@ -299,26 +297,6 @@ def create_app(settings=None):
     @app.delete("/api/filters/{fid}", **W)
     def api_delete_filter(fid: str):
         store.delete_filter(fid)
-        return {"ok": True}
-
-    @app.get("/api/projects/{project}/keys", **R)
-    def api_keys(project: str):
-        return store.keys(project)
-
-    @app.post("/api/projects/{project}/keys", **W)
-    async def api_create_key(project: str, request: Request):
-        try:
-            name = str((await request.json()).get("name") or "").strip()[:100]
-        except Exception:
-            name = ""
-        if not project.strip() or len(project) > 200:
-            raise HTTPException(400, "bad project name")
-        return store.create_key(project, name or "key")
-
-    @app.delete("/api/keys/{key_id}", **W)
-    def api_delete_key(key_id: str):
-        if not store.delete_key(key_id):
-            raise HTTPException(404, "key not found")
         return {"ok": True}
 
     @app.get("/api/traces/{trace_id}", **R)
