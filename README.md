@@ -187,7 +187,7 @@ lighttrace                          # http://127.0.0.1:1984  (--host, --port, --
 `lighttrace` reads `.env` from the current directory (variables already set in the shell win).
 A good key: `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`.
 
-Docker (the image includes Postgres support):
+Docker (the image includes Postgres and OTLP/gRPC support):
 
 ```bash
 docker build -t lighttrace .
@@ -197,7 +197,8 @@ docker run -d --name lighttrace --restart unless-stopped \
 ```
 
 The image binds `0.0.0.0` inside the container and stores SQLite at `/data/lighttrace.db`;
-`-p 127.0.0.1:…` keeps it private on the host.
+`-p 127.0.0.1:…` keeps it private on the host. For OTLP/gRPC add `-e LIGHTTRACE_GRPC_PORT=4317
+-p 127.0.0.1:4317:4317`.
 
 ### Postgres
 
@@ -320,5 +321,8 @@ LANGSMITH_TRACING=true LANGSMITH_ENDPOINT=http://127.0.0.1:1984 LANGSMITH_API_KE
 ```
 
 The Postgres test database is wiped by the tests; never point it at real data.
+
+Contributions welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) (commits are signed off under the DCO),
+[SECURITY.md](SECURITY.md) for reporting vulnerabilities, and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 License: MIT.

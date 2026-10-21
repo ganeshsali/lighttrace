@@ -3,3 +3,7 @@
 tests
 *.db*
 .env
+docs
+examples
+.github
+node_modules

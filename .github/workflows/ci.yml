@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: lighttrace_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # A throwaway database: the tests drop its tables.
+      LIGHTTRACE_TEST_PG: postgresql://postgres:postgres@127.0.0.1:5432/lighttrace_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -e '.[test]'
+      - run: pytest -q   # SQLite and Postgres variants
+
+  frameworks:
+    # End-to-end runs of examples/ with real instrumentors (fake models, no LLM calls).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: >-
+          pip install -e '.[test]' openinference-instrumentation-langchain llama-index-core
+          openinference-instrumentation-llama-index openai-agents openinference-instrumentation-openai-agents
+          pydantic-ai-slim google-adk
+      - run: pytest -q -rs tests/test_frameworks.py
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t lighttrace:ci .
