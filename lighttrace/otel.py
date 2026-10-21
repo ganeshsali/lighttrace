@@ -123,12 +123,17 @@ def _run(span, project, runtime, service):
         "name": span.get("name") or "span", "run_type": _run_type(a), "session_name": project,
         "start_time": _secs(span.get("startTimeUnixNano")), "end_time": _secs(span.get("endTimeUnixNano")),
     }
+    if runtime.get("otel.scope") == "gcp.vertex.agent":  # Google ADK
+        if run["run_type"] == "llm" and not _json(a.get("gcp.vertex.agent.llm_request")):
+            run["run_type"] = "chain"  # ADK 2 repeats call_llm's usage on a generate_content child: count it once
+        elif run["name"].startswith("agent_run"):
+            run["run_type"] = "agent"  # ADK 1.x: "agent_run [name]", no attributes
     if run["run_type"] == "tool" and a.get("ai.toolCall.name"):
         run["name"] = a.pop("ai.toolCall.name")  # Vercel names every tool span "ai.toolCall"
     run["inputs"], run["outputs"] = _io(a, run["run_type"] == "llm")
 
     model = _first(a, "llm.model_name", "gen_ai.response.model", "gen_ai.request.model", "ai.model.id",
-                   "langfuse.observation.model.name")
+                   "langfuse.observation.model.name", "embedding.model_name")
     params = _json(_first(a, "llm.invocation_parameters", "langfuse.observation.model.parameters"))
     params = {**_prefixed(a, "ai.settings."), **(params if isinstance(params, dict) else {})}
     if model:
@@ -199,6 +204,8 @@ def _run_type(a):
     op = a.get("gen_ai.operation.name")
     if op in GENAI_OPS:
         return GENAI_OPS[op]
+    if _json(a.get("gcp.vertex.agent.llm_request")):  # Google ADK's call_llm
+        return "llm"
     if "pydantic_ai.all_messages" in a or "all_messages_events" in a:  # Pydantic AI's agent run
         return "agent"
     if a.get("gen_ai.tool.name") and not op:  # Pydantic AI < 1.0 "running tool"
@@ -255,6 +262,12 @@ def _io(a, llm):
     last_user = max((i for i, m in enumerate(convo) if m["role"] == "user" and "tool_call_id" not in m),
                     default=len(convo) - 1)
     pyd_in = convo[:last_user + 1]
+    # OpenInference retrievers and embeddings (vectors are dropped: big, and unreadable in a trace)
+    docs = [{"page_content": d.get("document.content"), "metadata": {
+        **(_json(d.get("document.metadata")) if isinstance(_json(d.get("document.metadata")), dict) else {}),
+        **{k: d[f"document.{k}"] for k in ("id", "score") if d.get(f"document.{k}") is not None}}}
+        for d in _indexed(a, "retrieval.documents")]
+    texts = [e["embedding.text"] for e in _indexed(a, "embedding.embeddings") if e.get("embedding.text") is not None]
     adk_in, adk_out = _gemini(_json(a.pop("gcp.vertex.agent.llm_request", None))), _gemini(
         _json(a.pop("gcp.vertex.agent.llm_response", None)))
 
@@ -271,6 +284,10 @@ def _io(a, llm):
     msgs_out = oi_out or new_out or ai_out or pyd["outputs"] or adk_out or old_out
     inputs = {"messages": msgs_in} if msgs_in and (llm or raw_in is None) else _wrap(raw_in, "input", llm)
     outputs = {"messages": msgs_out} if msgs_out and (llm or raw_out is None) else _wrap(raw_out, "output", llm)
+    if docs:  # beats output.value, which LlamaIndex fills with object reprs
+        outputs = {"documents": docs}
+    if texts and inputs is None:
+        inputs = {"input": texts}
     return inputs, outputs
 
 

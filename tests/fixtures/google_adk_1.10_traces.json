@@ -1,0 +1,277 @@
+{
+ "resourceSpans": [
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "3f51931e-f08e-435b-ab92-d61898be07e1"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "adk110"
+      }
+     }
+    ]
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "gcp.vertex.agent"
+     },
+     "spans": [
+      {
+       "traceId": "e3176b1dc85b357eac68b3dfcbf691d4",
+       "spanId": "8d704ef4f7db534a",
+       "parentSpanId": "cea0e11ccd0dae2b",
+       "name": "execute_tool weather",
+       "kind": 1,
+       "startTimeUnixNano": "1792582327186401000",
+       "endTimeUnixNano": "1792582327187309000",
+       "attributes": [
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "gcp.vertex.agent"
+         }
+        },
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "execute_tool"
+         }
+        },
+        {
+         "key": "gen_ai.tool.name",
+         "value": {
+          "stringValue": "weather"
+         }
+        },
+        {
+         "key": "gen_ai.tool.description",
+         "value": {
+          "stringValue": "Weather for a city."
+         }
+        },
+        {
+         "key": "gen_ai.tool.call.id",
+         "value": {
+          "stringValue": "adk-27f79fc2-a811-45ef-b697-e8fcadc31bc3"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.tool_call_args",
+         "value": {
+          "stringValue": "{\"city\": \"Pune\"}"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.event_id",
+         "value": {
+          "stringValue": "62329a81-c547-49f8-a0a0-d2f786a55374"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.tool_response",
+         "value": {
+          "stringValue": "{\"sky\": \"sunny\"}"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.llm_request",
+         "value": {
+          "stringValue": "{}"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.llm_response",
+         "value": {
+          "stringValue": "{}"
+         }
+        }
+       ],
+       "status": {},
+       "flags": 256
+      },
+      {
+       "traceId": "e3176b1dc85b357eac68b3dfcbf691d4",
+       "spanId": "cea0e11ccd0dae2b",
+       "parentSpanId": "2a6ee8005ced5c50",
+       "name": "call_llm",
+       "kind": 1,
+       "startTimeUnixNano": "1792582327184224000",
+       "endTimeUnixNano": "1792582327187420000",
+       "attributes": [
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "gcp.vertex.agent"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "fake-gemini"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.invocation_id",
+         "value": {
+          "stringValue": "e-a12153e2-5524-41eb-ad41-51303166934f"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.session_id",
+         "value": {
+          "stringValue": "df2e83a8-de9f-4696-a8ca-53fa5b47ff36"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.event_id",
+         "value": {
+          "stringValue": "b53e9132-e36c-44ce-8200-25defa3e5f81"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.llm_request",
+         "value": {
+          "stringValue": "{\"model\": \"fake-gemini\", \"config\": {\"system_instruction\": \"Be brief.\\n\\nYou are an agent. Your internal name is \\\"weather_agent\\\".\", \"tools\": [{\"function_declarations\": [{\"description\": \"Weather for a city.\", \"name\": \"weather\", \"parameters\": {\"properties\": {\"city\": {\"type\": \"STRING\"}}, \"required\": [\"city\"], \"type\": \"OBJECT\"}}]}], \"labels\": {\"adk_agent_name\": \"weather_agent\"}}, \"contents\": [{\"parts\": [{\"text\": \"Weather in Pune?\"}], \"role\": \"user\"}]}"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.llm_response",
+         "value": {
+          "stringValue": "{\"content\":{\"parts\":[{\"function_call\":{\"args\":{\"city\":\"Pune\"},\"name\":\"weather\"}}],\"role\":\"model\"},\"usage_metadata\":{\"candidates_token_count\":4,\"prompt_token_count\":10,\"total_token_count\":14}}"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": "10"
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": "4"
+         }
+        }
+       ],
+       "status": {},
+       "flags": 256
+      },
+      {
+       "traceId": "e3176b1dc85b357eac68b3dfcbf691d4",
+       "spanId": "5a1b79ca107a2879",
+       "parentSpanId": "2a6ee8005ced5c50",
+       "name": "call_llm",
+       "kind": 1,
+       "startTimeUnixNano": "1792582327187800000",
+       "endTimeUnixNano": "1792582327188095000",
+       "attributes": [
+        {
+         "key": "gen_ai.system",
+         "value": {
+          "stringValue": "gcp.vertex.agent"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "fake-gemini"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.invocation_id",
+         "value": {
+          "stringValue": "e-a12153e2-5524-41eb-ad41-51303166934f"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.session_id",
+         "value": {
+          "stringValue": "df2e83a8-de9f-4696-a8ca-53fa5b47ff36"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.event_id",
+         "value": {
+          "stringValue": "61b19bc3-8fd6-483d-be68-11358cd70232"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.llm_request",
+         "value": {
+          "stringValue": "{\"model\": \"fake-gemini\", \"config\": {\"system_instruction\": \"Be brief.\\n\\nYou are an agent. Your internal name is \\\"weather_agent\\\".\", \"tools\": [{\"function_declarations\": [{\"description\": \"Weather for a city.\", \"name\": \"weather\", \"parameters\": {\"properties\": {\"city\": {\"type\": \"STRING\"}}, \"required\": [\"city\"], \"type\": \"OBJECT\"}}]}], \"labels\": {\"adk_agent_name\": \"weather_agent\"}}, \"contents\": [{\"parts\": [{\"text\": \"Weather in Pune?\"}], \"role\": \"user\"}, {\"parts\": [{\"function_call\": {\"args\": {\"city\": \"Pune\"}, \"name\": \"weather\"}}], \"role\": \"model\"}, {\"parts\": [{\"function_response\": {\"name\": \"weather\", \"response\": {\"sky\": \"sunny\"}}}], \"role\": \"user\"}]}"
+         }
+        },
+        {
+         "key": "gcp.vertex.agent.llm_response",
+         "value": {
+          "stringValue": "{\"content\":{\"parts\":[{\"text\":\"It is sunny in Pune.\"}],\"role\":\"model\"},\"usage_metadata\":{\"candidates_token_count\":4,\"prompt_token_count\":10,\"total_token_count\":14}}"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": "10"
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": "4"
+         }
+        }
+       ],
+       "status": {},
+       "flags": 256
+      },
+      {
+       "traceId": "e3176b1dc85b357eac68b3dfcbf691d4",
+       "spanId": "2a6ee8005ced5c50",
+       "parentSpanId": "178dc640f2b12c2c",
+       "name": "agent_run [weather_agent]",
+       "kind": 1,
+       "startTimeUnixNano": "1792582327163404000",
+       "endTimeUnixNano": "1792582327188129000",
+       "status": {},
+       "flags": 256
+      },
+      {
+       "traceId": "e3176b1dc85b357eac68b3dfcbf691d4",
+       "spanId": "178dc640f2b12c2c",
+       "name": "invocation",
+       "kind": 1,
+       "startTimeUnixNano": "1792582327163153000",
+       "endTimeUnixNano": "1792582327188144000",
+       "status": {},
+       "flags": 256
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

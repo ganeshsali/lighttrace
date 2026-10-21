@@ -1,9 +1,11 @@
 # lighttrace
 
-A small, self-hosted tracing server with a web UI for **LangChain and LangGraph** apps.
-It speaks enough of the LangSmith ingest API that the LangSmith SDK already inside your app
-sends traces to it — **no code changes**, just environment variables.
-It also accepts **OpenTelemetry (OTLP/HTTP)**, so apps on other frameworks or languages can send traces too.
+A small, self-hosted tracing server with a web UI for **LLM apps and agents**.
+It speaks enough of the LangSmith ingest API that the LangSmith SDK already inside a LangChain or
+LangGraph app sends traces to it — **no code changes**, just environment variables.
+It also accepts **OpenTelemetry** (OTLP over HTTP or gRPC), so apps on other frameworks (LlamaIndex,
+CrewAI, OpenAI Agents, Pydantic AI, Google ADK, Vercel AI SDK, ...) or languages can send traces too —
+see [Supported frameworks](#supported-frameworks).
 
 - One Python process (FastAPI). Storage in **SQLite** (one file, default) or **Postgres**.
   ~50–100 MB RAM; runs comfortably on a 2 CPU / 4 GB box.
@@ -98,27 +100,66 @@ OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<project key>
 
 With a project key the project is the key's. With an admin key it comes from the
 `x-lighttrace-project` header, else the `service.name` resource attribute (`OTEL_SERVICE_NAME`), else
-`default`. Spans are understood in these conventions:
+`default`.
 
-| Convention (typical instrumentor) | Mapped |
+### Supported frameworks
+
+Step-by-step pages with copy-paste setup are in [docs/](docs/README.md). "End to end" means a test
+runs the framework with its instrumentor (fake model, no LLM) against a live lighttrace;
+"real payload" means a test replays what the real exporter sent; "documented" means set up from the
+vendor's docs only.
+
+| Framework | Route | Status |
+|---|---|---|
+| [LangChain / LangGraph](docs/langgraph.md) | LangSmith SDK, env vars only | end to end (`test_e2e.py`) |
+| [LangChain / LangGraph](docs/langgraph.md) | OpenInference | end to end (`examples/otel_demo.py`) |
+| [LangChain](docs/langchain.md) | LangSmith SDK in OTel mode | real payload |
+| [LlamaIndex](docs/llamaindex.md) | OpenInference | end to end |
+| [OpenAI Agents SDK](docs/openai-agents.md) | OpenInference | end to end |
+| [CrewAI](docs/crewai.md) | OpenInference | run by hand (see its page); skips in tests |
+| [Pydantic AI](docs/builtin-otel.md#pydantic-ai) | built-in OTel, or Logfire | end to end; real payloads for 0.4, 2.x and Logfire |
+| [Google ADK](docs/builtin-otel.md#google-adk) | built-in OTel | end to end (1.10); real payload (2.12) |
+| [Vercel AI SDK](docs/builtin-otel.md#vercel-ai-sdk-and-mastra-javascript) | built-in OTel | real payload; example run by hand |
+| [Mastra](docs/builtin-otel.md#vercel-ai-sdk-and-mastra-javascript) | via the AI SDK's spans | documented |
+| [Strands Agents](docs/builtin-otel.md#strands-agents-documented-only) | built-in OTel | documented |
+| [Semantic Kernel](docs/builtin-otel.md#semantic-kernel-documented-only) | built-in OTel | documented |
+| Langfuse SDK v3 | `LANGFUSE_HOST` pointed here | end to end; real payload |
+| MLflow Tracing | OTLP export | real payload |
+| OpenAI SDK | official `opentelemetry-instrumentation-openai-v2` | real payload (spans + log events) |
+| Many LLM clients | [OpenLLMetry](docs/README.md#openllmetry-one-alternative-for-all-of-them) / OpenLIT | real payloads |
+| [Your own spans, any language](docs/manual-otel.md) | plain OTel + GenAI attributes | end to end |
+
+### Supported transports & dialects
+
+| Transport | Status |
 |---|---|
-| [OpenInference](https://github.com/Arize-ai/openinference) (Phoenix) | span kind, `input.value`/`output.value`, `llm.input_messages`/`llm.output_messages` incl. tool calls, token counts, model, invocation params, `metadata`, `tag.tags`, `session.id` |
-| [OTel GenAI](https://opentelemetry.io/docs/specs/semconv/gen-ai/) | `gen_ai.operation.name`, models, usage, `gen_ai.input.messages`/`gen_ai.output.messages`, `gen_ai.system_instructions`, tool call arguments/result, `gen_ai.conversation.id` |
-| OpenLLMetry (Traceloop) | `traceloop.span.kind`, `traceloop.entity.input`/`output`, `gen_ai.prompt.N`/`gen_ai.completion.N` |
-| Vercel AI SDK / Mastra (`experimental_telemetry`) | `ai.operationId` (model call → llm, `ai.toolCall` → tool), `ai.prompt`, `ai.prompt.messages`, `ai.response.text`/`toolCalls`, `ai.usage.*`, `ai.model.id`, `ai.toolCall.*`, `ai.settings.*`, `ai.telemetry.metadata.*` |
-| Langfuse SDK v3 | `langfuse.observation.type`/`input`/`output`/`model.name`/`model.parameters`/`usage_details`/`level`/`metadata.*`, `langfuse.trace.tags`/`input`/`output`/`metadata.*`, `session.id` |
-| OTel GenAI events | log events or span events `gen_ai.system/user/assistant/tool.message`, `gen_ai.choice`, `gen_ai.client.inference.operation.details`, and the older `gen_ai.content.prompt`/`completion`, matched to their span by trace/span id whichever arrives first |
-| MLflow | `mlflow.spanType`, `mlflow.spanInputs`/`spanOutputs`, `mlflow.chat.tokenUsage` (or OpenAI-style `usage` in the output) |
-| LangSmith SDK OTel mode | `langsmith.span.kind`, `langsmith.metadata.*`, `langsmith.span.tags`, `gen_ai.prompt`/`gen_ai.completion` JSON |
-| Google ADK | `gcp.vertex.agent.llm_request`/`llm_response` (as chat messages), `tool_call_args`/`tool_response` |
-| Pydantic AI / Logfire | GenAI attributes, `pydantic_ai.all_messages` + `final_result` on the agent run, pre-1.0 `events`/`all_messages_events`; `logfire.json_schema` decodes JSON-valued attributes, other `logfire.*` stay as metadata |
-| OpenLIT | GenAI attributes and its operation-details log event |
+| OTLP/HTTP protobuf on `/v1/traces` (gzip ok) | tested with the real Python exporter; the JS exporter by hand |
+| OTLP/HTTP JSON, ids hex (spec) or base64 | tested |
+| OTLP `/v1/logs` (protobuf + JSON), GenAI events only | tested with real payloads |
+| OTLP `/v1/metrics` | accepted and dropped (one warning) |
+| OTLP/gRPC on `LIGHTTRACE_GRPC_PORT` (`lighttrace[grpc]`) | tested with the real Python gRPC exporters (traces + logs) |
+| LangSmith `/runs/batch`, `/runs`, `PATCH /runs/{id}` | tested with the real LangSmith SDK |
+
+| Dialect (span attributes) | Mapped | Status |
+|---|---|---|
+| [OpenInference](https://github.com/Arize-ai/openinference) | span kind, `input.value`/`output.value`, `llm.input_messages`/`output_messages` incl. tool calls, tokens, model, invocation params, retrieval documents, embedding texts, `metadata`, `tag.tags`, `session.id` | real |
+| [OTel GenAI](https://opentelemetry.io/docs/specs/semconv/gen-ai/) | `gen_ai.operation.name`, models, usage, `gen_ai.input/output.messages`, `gen_ai.system_instructions`, tool call arguments/result, `gen_ai.conversation.id` | real |
+| OTel GenAI events | log or span events `gen_ai.system/user/assistant/tool.message`, `gen_ai.choice`, `gen_ai.client.inference.operation.details`, older `gen_ai.content.prompt`/`completion`; matched to their span whichever arrives first | real (log events); documented (span events) |
+| OpenLLMetry | `traceloop.span.kind`, `traceloop.entity.input`/`output`, GenAI attributes, older `gen_ai.prompt.N` | real |
+| OpenLIT | GenAI attributes + its operation-details log event | real |
+| Vercel AI SDK / Mastra | `ai.operationId`, `ai.prompt(.messages)`, `ai.response.text`/`toolCalls`, `ai.usage.*`, `ai.model.id`, `ai.toolCall.*`, `ai.settings.*`, `ai.telemetry.metadata.*` | real |
+| Langfuse SDK v3 | `langfuse.observation.*`, `langfuse.trace.*`, `session.id` | real |
+| MLflow | `mlflow.spanType`, `mlflow.spanInputs`/`spanOutputs`, `mlflow.chat.tokenUsage` or OpenAI-style `usage` | real |
+| LangSmith OTel mode | `langsmith.span.kind`, `langsmith.metadata.*`, `langsmith.span.tags`, JSON `gen_ai.prompt`/`completion` | real |
+| Google ADK | `gcp.vertex.agent.llm_request`/`llm_response` as chat, `tool_call_args`/`tool_response` | real (1.10 and 2.12) |
+| Pydantic AI / Logfire | GenAI attributes, `pydantic_ai.all_messages` + `final_result`, pre-1.0 `events`/`all_messages_events`; `logfire.json_schema` decodes JSON attributes | real |
 
 Every other span attribute shows up as run metadata (so the `key:value` filter works on it), resource
 attributes under Runtime, and an error status with its `exception` event becomes the run's error.
 Threads group on a `thread_id` / `session_id` / `conversation_id` in `metadata`, or on `session.id` /
 `gen_ai.conversation.id`. Agent spans (OpenInference `AGENT`, `gen_ai.operation.name` `invoke_agent` /
-`create_agent`, Langfuse `agent`, OpenLLMetry `agent`) get their own **agent** run type.
+`create_agent`, Langfuse `agent`, OpenLLMetry `agent`, MLflow `AGENT`, Pydantic AI and ADK agent runs)
+get their own **agent** run type.
 
 **Several services in one trace** (an agent calling another agent over A2A, or an MCP server in its own
 process): lighttrace keeps one trace per *(OTel trace id, `service.name`)*. Each service's part shows as its
@@ -270,6 +311,8 @@ max_latency, min_tokens`.
 ```bash
 python3.11 -m venv .venv && .venv/bin/pip install -e '.[test]'
 .venv/bin/pytest            # includes an end-to-end LangGraph + real SDK test, no LLM calls
+# framework end-to-end tests (tests/test_frameworks.py) skip unless the framework is installed, e.g.
+.venv/bin/pip install llama-index-core openinference-instrumentation-llama-index pydantic-ai-slim
 LIGHTTRACE_TEST_PG=postgresql://user@127.0.0.1/lighttrace_test .venv/bin/pytest   # also on Postgres
 # sample traces (fake model, 3 threads) into a running server:
 LANGSMITH_TRACING=true LANGSMITH_ENDPOINT=http://127.0.0.1:1984 LANGSMITH_API_KEY=<key> \

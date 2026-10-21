@@ -8,3 +8,5 @@ __pycache__/
 .pytest_cache/
 build/
 .DS_Store
+node_modules/
+package-lock.json

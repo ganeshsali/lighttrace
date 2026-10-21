@@ -328,18 +328,47 @@ def test_mlflow(client):
 
 
 def test_google_adk(client):
-    """google-adk 2.12 LlmAgent with a fake BaseLlm and one function tool. Content sits on call_llm,
-    tokens on its generate_content child (the llm run), so they are counted once."""
+    """google-adk 2.12 LlmAgent with a fake BaseLlm and one function tool. call_llm is the llm run
+    (content + usage); ADK 2's generate_content child repeats the usage and is not counted again."""
     t, runs = dialect(client, "google_adk")
     assert t["name"] == "invocation" and t["total_tokens"] == 28
     assert runs["invoke_agent weather_agent"]["run_type"] == "agent"
-    call = next(r for r in client.get(f"/api/traces/{t['id']}").json()["runs"]
-                if r["name"] == "call_llm" and "tool_calls" in r["outputs"]["messages"][0])
+    all_runs = client.get(f"/api/traces/{t['id']}").json()["runs"]
+    assert [r["name"] for r in all_runs if r["run_type"] == "llm"] == ["call_llm", "call_llm"]
+    call = next(r for r in all_runs if r["name"] == "call_llm" and "tool_calls" in r["outputs"]["messages"][0])
+    assert call["model"] == "fake-gemini" and call["total_tokens"] == 14
     assert call["inputs"]["messages"][0]["role"] == "system"
     assert call["inputs"]["messages"][1] == {"role": "user", "content": "Weather in Pune?"}
     assert call["outputs"]["messages"][0]["tool_calls"] == [{"name": "weather", "id": None, "args": {"city": "Pune"}}]
     tool = runs["execute_tool weather"]
     assert tool["run_type"] == "tool" and tool["inputs"] == {"city": "Pune"} and tool["outputs"] == {"sky": "sunny"}
+
+
+def test_google_adk_1_10(client):
+    """google-adk 1.10 (examples/google_adk_demo.py): no generate_content span and no invoke_agent
+    operation; call_llm is the llm run and "agent_run [name]" the agent."""
+    t, runs = dialect(client, "google_adk_1.10")
+    assert t["total_tokens"] == 28 and runs["agent_run [weather_agent]"]["run_type"] == "agent"
+    assert runs["call_llm"]["run_type"] == "llm" and runs["call_llm"]["model"] == "fake-gemini"
+
+
+def test_openinference_retriever_and_embedding(client):
+    """Documented OpenInference attributes (LlamaIndex fills them; its real run is in test_frameworks)."""
+    post(client, {"resourceSpans": [resource("svc", [
+        span("4000000000000001", "", "query", 0, 10, {"openinference.span.kind": "CHAIN", "input.value": "q?"}),
+        span("4000000000000002", "4000000000000001", "retrieve", 1, 5, {
+            "openinference.span.kind": "RETRIEVER", "output.value": "[<NodeWithScore ...>]",
+            "retrieval.documents.0.document.content": "Pune is sunny.", "retrieval.documents.0.document.id": "d1",
+            "retrieval.documents.0.document.score": 0.9, "retrieval.documents.0.document.metadata": '{"file": "a.txt"}'}),
+        span("4000000000000003", "4000000000000002", "embed", 1, 2, {
+            "openinference.span.kind": "EMBEDDING", "embedding.model_name": "mock",
+            "embedding.embeddings.0.embedding.text": "q?", "embedding.embeddings.0.embedding.vector": [0.1, 0.2]})])]})
+    _, runs = only_trace(client)
+    by = {r["name"]: r for r in runs}
+    assert by["retrieve"]["outputs"] == {"documents": [{"page_content": "Pune is sunny.", "metadata": {
+        "file": "a.txt", "id": "d1", "score": 0.9}}]}
+    assert by["embed"]["inputs"] == {"input": ["q?"]} and by["embed"]["run_type"] == "embedding"
+    assert not any("vector" in k for k in by["embed"]["extra"]["metadata"])
 
 
 def pydantic_ai_checks(t, runs, tool_name):
