@@ -157,6 +157,29 @@ def preview(value, limit=200):
     return v if len(v) <= limit else v[: limit - 1] + "…"
 
 
+def _tree_order(runs, root):
+    """Runs in depth-first order, siblings by start. OTel spans have no dotted_order, and the
+    root span's children point at an id no row has (see otel.py): those hang under the root."""
+    ids = {r["id"] for r in runs}
+    if root["is_root"]:
+        for r in runs:
+            if r is not root and r["parent_run_id"] not in ids:
+                r["parent_run_id"] = root["id"]
+    kids = {}
+    for r in runs:  # already sorted by (dotted_order, start_time)
+        kids.setdefault(r["parent_run_id"], []).append(r)
+    order, seen = [], set()
+    stack = [r for r in runs if r["parent_run_id"] not in ids][::-1]
+    while stack:
+        r = stack.pop()
+        if r["id"] in seen:
+            continue
+        seen.add(r["id"])
+        order.append(r)
+        stack += kids.get(r["id"], [])[::-1]
+    return order + [r for r in runs if r["id"] not in seen]  # parent cycles: bad data, still shown
+
+
 def percentile(values, p):
     """Nearest-rank percentile; None for no values."""
     vals = sorted(v for v in values if v is not None)
@@ -316,7 +339,10 @@ class Store:
         cur["first_token_time"] = _first_token(cur["events"], start)
         cur["thread_id"] = _thread_id(cur["extra"])
         if cur.get("run_type") == "llm":
-            cur["input_tokens"], cur["output_tokens"], cur["total_tokens"] = extract_tokens(cur["outputs"])
+            tokens = extract_tokens(cur["outputs"])
+            if tokens[2] is None:  # OTel spans carry usage as attributes, not inside outputs
+                tokens = (run.get("input_tokens"), run.get("output_tokens"), run.get("total_tokens"))
+            cur["input_tokens"], cur["output_tokens"], cur["total_tokens"] = tokens
             cur["model"] = _model(cur["extra"] or {})
 
         for col in JSON_COLS:
@@ -536,6 +562,7 @@ class Store:
         for r in runs:
             r["cost"] = self.prices.cost(r["model"], r["input_tokens"], r["output_tokens"])
         root = next((r for r in runs if r["is_root"]), runs[0])
+        runs = _tree_order(runs, root)
         self._first_tokens([root])
         return {"trace_id": trace_id, "project": root["project"], "thread_id": root["thread_id"],
                 "runs": runs}

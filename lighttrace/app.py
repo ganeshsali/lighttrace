@@ -16,7 +16,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import __version__
+from . import __version__, otel
 from .store import META_KEY_RE, Prices, Store
 
 log = logging.getLogger("lighttrace")
@@ -153,7 +153,7 @@ def create_app(settings=None):
         if not any(hmac.compare_digest(key, k) for k in settings.api_keys):
             raise HTTPException(401, "invalid api key")
 
-    async def read_json(request):
+    async def read_body(request):
         body = await request.body()
         if len(body) > max_body:
             raise HTTPException(413, "body too large")
@@ -167,6 +167,10 @@ def create_app(settings=None):
             warn_once(("enc", enc), "unsupported Content-Encoding %r on %s; ask the SDK not to compress", enc,
                       request.url.path)
             raise HTTPException(415, f"unsupported content-encoding {enc}")
+        return body
+
+    async def read_json(request):
+        body = await read_body(request)
         ctype = request.headers.get("content-type", "")
         if ctype and "json" not in ctype:
             warn_once(("ctype", ctype.split(";")[0]), "unsupported Content-Type %r on %s", ctype, request.url.path)
@@ -216,6 +220,26 @@ def create_app(settings=None):
         # 404 makes the SDK fall back to /runs/batch.
         warn_once("multipart", "SDK used /runs/multipart; lighttrace only supports /runs/batch (it will fall back)")
         raise HTTPException(404, "multipart ingest not supported")
+
+    @app.post("/v1/traces")
+    async def otlp_traces(request: Request):
+        """OTLP/HTTP (protobuf or JSON). Project: x-lighttrace-project header, else service.name."""
+        check_key(request)
+        body = await read_body(request)
+        ctype = (request.headers.get("content-type") or "").lower()
+        if "protobuf" not in ctype and "json" not in ctype:
+            warn_once(("otlp-ctype", ctype.split(";")[0]), "unsupported OTLP Content-Type %r", ctype)
+            raise HTTPException(415, "expected application/x-protobuf or application/json")
+        try:
+            req, b64 = otel.parse(body, ctype)
+            runs = otel.to_runs(req, b64, request.headers.get("x-lighttrace-project"))
+        except Exception as e:  # untrusted payload: any shape error is the sender's
+            warn_once(("otlp-bad", type(e).__name__), "rejected OTLP payload: %s", type(e).__name__)
+            raise HTTPException(400, "invalid OTLP payload")
+        store.upsert_runs(runs)
+        if "protobuf" in ctype:  # an empty ExportTraceServiceResponse
+            return Response(b"", media_type="application/x-protobuf")
+        return {}
 
     # ---------- UI auth ----------
 

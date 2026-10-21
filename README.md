@@ -3,6 +3,7 @@
 A small, self-hosted tracing server with a web UI for **LangChain and LangGraph** apps.
 It speaks enough of the LangSmith ingest API that the LangSmith SDK already inside your app
 sends traces to it — **no code changes**, just environment variables.
+It also accepts **OpenTelemetry (OTLP/HTTP)**, so apps on other frameworks or languages can send traces too.
 
 - One Python process (FastAPI). Storage in **SQLite** (one file, default) or **Postgres**.
   ~50–100 MB RAM; runs comfortably on a 2 CPU / 4 GB box.
@@ -69,6 +70,33 @@ The root run id shown in the UI is the same id LangSmith would have given you, s
 Some apps load `.env` in a way that never reaches the SDK (pydantic-settings, for one). If traces
 do not arrive, export the variables in the shell, or have the app copy its own settings into
 `os.environ`.
+
+### Or send OpenTelemetry
+
+Any app instrumented with OpenTelemetry can export to `POST /v1/traces` (OTLP over HTTP, protobuf or
+JSON, optionally gzip). For example, LlamaIndex, CrewAI, the raw OpenAI SDK, or non-Python apps.
+
+```
+OTEL_EXPORTER_OTLP_ENDPOINT=http://<lighttrace-host>:1984
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<one of LIGHTTRACE_API_KEYS>,x-lighttrace-project=myapp-prod
+```
+
+The project comes from the `x-lighttrace-project` header, else the `service.name` resource attribute
+(`OTEL_SERVICE_NAME`), else `default`. Spans are understood in these conventions:
+
+| Convention (typical instrumentor) | Mapped |
+|---|---|
+| [OpenInference](https://github.com/Arize-ai/openinference) (Phoenix) | span kind, `input.value`/`output.value`, `llm.input_messages`/`llm.output_messages` incl. tool calls, token counts, model, invocation params, `metadata`, `tag.tags`, `session.id` |
+| [OTel GenAI](https://opentelemetry.io/docs/specs/semconv/gen-ai/) | `gen_ai.operation.name`, models, usage, `gen_ai.input.messages`/`gen_ai.output.messages`, `gen_ai.system_instructions`, tool call arguments/result, `gen_ai.conversation.id` |
+| OpenLLMetry (Traceloop) | `traceloop.span.kind`, `traceloop.entity.input`/`output`, `gen_ai.prompt.N`/`gen_ai.completion.N` |
+
+Every other span attribute shows up as run metadata (so the `key:value` filter works on it), resource
+attributes under Runtime, and an error status with its `exception` event becomes the run's error.
+Threads group on a `thread_id` / `session_id` / `conversation_id` in `metadata`, or on `session.id` /
+`gen_ai.conversation.id`.
+
+For a LangChain app, the LangSmith route above gives richer traces; OTel is for everything else.
 
 ## Run it
 
@@ -169,6 +197,11 @@ Run payloads are never logged — they usually hold user and business data.
   your app starts, the SDK tries multipart first, gets the 404 once the server is back and switches
   to `/runs/batch` by itself (verified). Traces produced while the server is down are lost — the SDK
   does not buffer to disk.
+- **OTLP over HTTP only**, traces only: no gRPC (port 4317), no `/v1/metrics` or `/v1/logs`. Point
+  the exporter at the HTTP protocol (`http/protobuf` or `http/json`). Span events in the older GenAI
+  style (`gen_ai.user.message` events) are kept as events but not turned into messages.
+- An OTel trace that starts in another service (its first span here has a remote parent) has no root
+  run, so it won't appear in the Traces list.
 - Text search is a `LIKE`/`ILIKE` scan; percentiles and dashboards are computed over the selected
   time window in Python. Fine for hundreds of thousands of traces; at many millions, narrow the
   window or add database-side indexes (e.g. `pg_trgm`).
@@ -179,6 +212,8 @@ Run payloads are never logged — they usually hold user and business data.
 
 Ingest (LangSmith-compatible, `x-api-key`): `GET /info`, `POST /runs/batch`, `POST /runs`,
 `PATCH /runs/{id}`. A patch may arrive before its post; both merge into one row.
+
+OpenTelemetry (`x-api-key` or `Authorization: Bearer`): `POST /v1/traces`, OTLP/HTTP protobuf or JSON.
 
 UI JSON (session cookie; writes also need the `x-lighttrace: 1` header):
 `GET /api/projects`, `GET /api/projects/{p}/runs?scope=traces|runs&…filters`,
