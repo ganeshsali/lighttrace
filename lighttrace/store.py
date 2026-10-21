@@ -325,6 +325,11 @@ class Store:
         cur.update(rows[0] if rows else {"id": run_id})
         for col in JSON_COLS:
             cur[col] = json.loads(cur[col]) if cur.get(col) else None
+        if run.get("stand_in") and rows:  # an OTel stand-in root (otel.py): fill gaps, widen its time window
+            run = {k: v for k, v in run.items() if cur.get(k) is None or k in ("start_time", "end_time", "extra")}
+            for col, pick in (("start_time", min), ("end_time", max)):
+                if run.get(col) is not None and cur[col] is not None:
+                    run[col] = pick(run[col], cur[col])
 
         for col in SIMPLE_COLS:
             if run.get(col) is not None:

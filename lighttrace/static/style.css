@@ -1,7 +1,7 @@
 :root {
   --bg: #f6f7f9; --panel: #ffffff; --panel2: #f1f3f6; --border: #e3e6eb; --text: #1b1f24; --muted: #687280;
   --accent: #4f7cff; --ok: #1f9d63; --err: #d93a3a; --warn: #c98a00; --sel: #e8eeff; --hover: #f4f6fa;
-  --chain: #6b7cff; --llm: #b04fd8; --tool: #e08a1e; --retriever: #1aa39a; --other: #8a94a3;
+  --chain: #6b7cff; --agent: #d6457a; --llm: #b04fd8; --tool: #e08a1e; --retriever: #1aa39a; --other: #8a94a3;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   /* chart tokens: reference palette slots 1-3 + status critical */
   --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --critical: #d03b3b;
@@ -78,7 +78,7 @@ table.mini th { font-size: 11px; padding: 6px 8px; } table.mini td { padding: 6p
 .type { display: inline-block; font-size: 10px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em;
   padding: 1px 5px; border-radius: 4px; color: #fff; background: var(--other); flex: none; }
 .type.chain { background: var(--chain); } .type.llm { background: var(--llm); } .type.tool { background: var(--tool); }
-.type.retriever { background: var(--retriever); }
+.type.retriever { background: var(--retriever); } .type.agent { background: var(--agent); }
 .tags { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .tag { background: var(--panel2); border: 1px solid var(--border); border-radius: 4px; padding: 0 6px; font-size: 12px; }
 
@@ -162,7 +162,7 @@ pre.rawjson { background: var(--panel2); padding: 10px; border-radius: 8px; max-
 .twisty { width: 14px; flex: none; color: var(--muted); font-size: 9px; text-align: center; user-select: none; cursor: pointer; }
 .wf-track { position: relative; height: 30px; margin-right: 10px; }
 .wf-bar { position: absolute; top: 10px; height: 10px; border-radius: 3px; background: var(--chain); min-width: 2px; opacity: .85; }
-.wf-bar.llm { background: var(--llm); } .wf-bar.tool { background: var(--tool); } .wf-bar.retriever { background: var(--retriever); }
+.wf-bar.llm { background: var(--llm); } .wf-bar.tool { background: var(--tool); } .wf-bar.retriever { background: var(--retriever); } .wf-bar.agent { background: var(--agent); }
 .wf-bar.error { background: var(--err); } .wf-bar.pending { opacity: .4; }
 
 /* thread */

@@ -1,5 +1,6 @@
 """lighttrace server: LangSmith-compatible ingest + a web UI."""
 
+import base64
 import hashlib
 import hmac
 import json
@@ -160,6 +161,11 @@ def create_app(settings=None):
         auth = request.headers.get("authorization") or ""
         if not key and auth.lower().startswith("bearer "):
             key = auth[7:]
+        elif not key and auth.lower().startswith("basic "):  # Langfuse SDK: public_key:secret_key
+            try:
+                key = base64.b64decode(auth[6:]).decode().partition(":")[2]
+            except ValueError:
+                pass
         try:
             return key_project(key)
         except PermissionError:
@@ -234,6 +240,7 @@ def create_app(settings=None):
         raise HTTPException(404, "multipart ingest not supported")
 
     @app.post("/v1/traces")
+    @app.post("/api/public/otel/v1/traces")  # where the Langfuse SDK sends (LANGFUSE_HOST)
     async def otlp_traces(request: Request):
         """OTLP/HTTP (protobuf or JSON). Project: the project key's, else the x-lighttrace-project
         header, else service.name."""

@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from conftest import API_KEY
 
@@ -51,7 +52,7 @@ def test_otlp_json_openinference_and_genai(client):
     assert r.status_code == 200, r.text
 
     [t] = client.get("/api/projects/proj/runs", params={"scope": "traces"}).json()["items"]
-    root_id = "0af76519-16cd-43dd-8448-eb211c80319c"
+    root_id = str(uuid.uuid5(uuid.UUID(TRACE), "ignored-by-header"))  # one trace per (OTel trace, service)
     assert t["id"] == root_id and t["name"] == "agent" and t["thread_id"] == "t1" and t["tags"] == ["prod"]
     assert t["input_preview"] == "weather?" and t["output_preview"] == "sunny"
     assert t["latency"] == 2.0 and (t["input_tokens"], t["output_tokens"], t["total_tokens"]) == (10, 5, 15)

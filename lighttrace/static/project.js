@@ -118,7 +118,7 @@ async function viewProject(project, tab, q) {
   advanced.append(
     h("div", { class: "adv-grid" },
       h("label", {}, "Name contains", field("name", h("input", { size: 16 }))),
-      tab === "runs" ? h("label", {}, "Run type", field("run_type", h("select", {}, ["", "chain", "llm", "tool", "retriever", "prompt", "parser", "embedding"].map((t) => h("option", { value: t }, t || "any"))))) : null,
+      tab === "runs" ? h("label", {}, "Run type", field("run_type", h("select", {}, ["", "agent", "chain", "llm", "tool", "retriever", "prompt", "parser", "embedding"].map((t) => h("option", { value: t }, t || "any"))))) : null,
       h("label", {}, "Tag", field("tag", h("input", { size: 12 }))),
       h("label", {}, "Latency ≥ s", field("min_latency", h("input", { size: 6, type: "number", step: "any" }))),
       h("label", {}, "Latency ≤ s", field("max_latency", h("input", { size: 6, type: "number", step: "any" }))),
@@ -303,7 +303,7 @@ async function viewDashboard(project, q, head, tabs) {
     h("div", { class: "filters" }, rangeSelect(range, (v) => go(["p", project, "dashboard"], new URLSearchParams({ range: v })), ["1h", "24h", "7d", "30d", "90d"]),
       h("span", { class: "muted small" }, `${ser.length} buckets of ${fmtSec(d.bucket)}`)),
     h("div", { class: "charts" }, charts.filter(Boolean).map((c) => c.el)),
-    h("div", { class: "tops" }, topTable("Tools", d.top.tool), topTable("LLM calls by model", d.top.llm, true),
+    h("div", { class: "tops" }, d.top.agent ? topTable("Agents", d.top.agent) : null, topTable("Tools", d.top.tool), topTable("LLM calls by model", d.top.llm, true),
       topTable("Chains", d.top.chain), d.top.retriever ? topTable("Retrievers", d.top.retriever) : null));
   charts.filter(Boolean).forEach((c) => c.draw());
 }

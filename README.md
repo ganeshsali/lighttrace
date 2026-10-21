@@ -102,11 +102,26 @@ With a project key the project is the key's. With an admin key it comes from the
 | [OpenInference](https://github.com/Arize-ai/openinference) (Phoenix) | span kind, `input.value`/`output.value`, `llm.input_messages`/`llm.output_messages` incl. tool calls, token counts, model, invocation params, `metadata`, `tag.tags`, `session.id` |
 | [OTel GenAI](https://opentelemetry.io/docs/specs/semconv/gen-ai/) | `gen_ai.operation.name`, models, usage, `gen_ai.input.messages`/`gen_ai.output.messages`, `gen_ai.system_instructions`, tool call arguments/result, `gen_ai.conversation.id` |
 | OpenLLMetry (Traceloop) | `traceloop.span.kind`, `traceloop.entity.input`/`output`, `gen_ai.prompt.N`/`gen_ai.completion.N` |
+| Vercel AI SDK / Mastra (`experimental_telemetry`) | `ai.operationId` (model call → llm, `ai.toolCall` → tool), `ai.prompt`, `ai.prompt.messages`, `ai.response.text`/`toolCalls`, `ai.usage.*`, `ai.model.id`, `ai.toolCall.*`, `ai.settings.*`, `ai.telemetry.metadata.*` |
+| Langfuse SDK v3 | `langfuse.observation.type`/`input`/`output`/`model.name`/`model.parameters`/`usage_details`/`level`/`metadata.*`, `langfuse.trace.tags`/`input`/`output`/`metadata.*`, `session.id` |
 
 Every other span attribute shows up as run metadata (so the `key:value` filter works on it), resource
 attributes under Runtime, and an error status with its `exception` event becomes the run's error.
 Threads group on a `thread_id` / `session_id` / `conversation_id` in `metadata`, or on `session.id` /
-`gen_ai.conversation.id`.
+`gen_ai.conversation.id`. Agent spans (OpenInference `AGENT`, `gen_ai.operation.name` `invoke_agent` /
+`create_agent`, Langfuse `agent`, OpenLLMetry `agent`) get their own **agent** run type.
+
+**Several services in one trace** (an agent calling another agent over A2A, or an MCP server in its own
+process): lighttrace keeps one trace per *(OTel trace id, `service.name`)*. Each service's part shows as its
+own trace, and both carry the OTel trace id in their `otel.trace_id` metadata, so the filter
+`otel.trace_id:<id>` finds them together. A span whose parent is in another process (OTLP remote-parent
+flag) hangs under a root for its service's part; if that service is entered several times in one trace,
+the root spans all of them. The remote parent's span id stays in the span's `otel.remote_parent_span_id`
+metadata. Give each service its own `service.name` (`OTEL_SERVICE_NAME`).
+
+**Langfuse SDK v3**: no code change, point it here: `LANGFUSE_HOST=http://<lighttrace-host>:1984`,
+`LANGFUSE_SECRET_KEY=<lighttrace key>`, `LANGFUSE_PUBLIC_KEY=<anything>`. lighttrace accepts its
+`/api/public/otel/v1/traces` endpoint and Basic auth (the secret key is checked as the API key).
 
 For a LangChain app, the LangSmith route above gives richer traces; OTel is for everything else.
 
@@ -212,8 +227,6 @@ Run payloads are never logged — they usually hold user and business data.
 - **OTLP over HTTP only**, traces only: no gRPC (port 4317), no `/v1/metrics` or `/v1/logs`. Point
   the exporter at the HTTP protocol (`http/protobuf` or `http/json`). Span events in the older GenAI
   style (`gen_ai.user.message` events) are kept as events but not turned into messages.
-- An OTel trace that starts in another service (its first span here has a remote parent) has no root
-  run, so it won't appear in the Traces list.
 - Text search is a `LIKE`/`ILIKE` scan; percentiles and dashboards are computed over the selected
   time window in Python. Fine for hundreds of thousands of traces; at many millions, narrow the
   window or add database-side indexes (e.g. `pg_trgm`).
@@ -226,7 +239,8 @@ Ingest (LangSmith-compatible, `x-api-key`): `GET /info`, `POST /runs/batch`, `PO
 `PATCH /runs/{id}`. A patch may arrive before its post; both merge into one row. With a project key,
 runs go into the key's project, and runs that already belong to another project are left alone.
 
-OpenTelemetry (`x-api-key` or `Authorization: Bearer`): `POST /v1/traces`, OTLP/HTTP protobuf or JSON.
+OpenTelemetry (`x-api-key`, `Authorization: Bearer <key>`, or Basic with the key as password):
+`POST /v1/traces` (also at `/api/public/otel/v1/traces` for the Langfuse SDK), OTLP/HTTP protobuf or JSON.
 
 UI JSON (session cookie; writes also need the `x-lighttrace: 1` header):
 `GET /api/projects`, `GET /api/projects/{p}/runs?scope=traces|runs&…filters`,

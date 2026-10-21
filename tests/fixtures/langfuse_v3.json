@@ -1,0 +1,222 @@
+{
+ "resourceSpans": [
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "37ae6393-e73e-46cd-8135-8450db2a47bc"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "unknown_service:python"
+      }
+     }
+    ]
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "langfuse-sdk",
+      "version": "3.15.0",
+      "attributes": [
+       {
+        "key": "public_key",
+        "value": {
+         "stringValue": "pk-lf-test"
+        }
+       }
+      ]
+     },
+     "spans": [
+      {
+       "traceId": "267683297e7041be3535fc4ad1c54189",
+       "spanId": "f448e66f271aeb42",
+       "parentSpanId": "b0ad3df054d5b0e1",
+       "name": "llm-call",
+       "kind": 1,
+       "startTimeUnixNano": "1792580472518894000",
+       "endTimeUnixNano": "1792580472519063000",
+       "attributes": [
+        {
+         "key": "langfuse.observation.input",
+         "value": {
+          "stringValue": "[{\"role\": \"user\", \"content\": \"where is my order?\"}]"
+         }
+        },
+        {
+         "key": "langfuse.observation.model.name",
+         "value": {
+          "stringValue": "fake-model"
+         }
+        },
+        {
+         "key": "langfuse.observation.model.parameters",
+         "value": {
+          "stringValue": "{\"temperature\": 0.1}"
+         }
+        },
+        {
+         "key": "langfuse.observation.metadata.step",
+         "value": {
+          "intValue": "1"
+         }
+        },
+        {
+         "key": "langfuse.observation.type",
+         "value": {
+          "stringValue": "generation"
+         }
+        },
+        {
+         "key": "langfuse.observation.output",
+         "value": {
+          "stringValue": "{\"role\": \"assistant\", \"content\": \"Let me check.\"}"
+         }
+        },
+        {
+         "key": "langfuse.observation.usage_details",
+         "value": {
+          "stringValue": "{\"input\": 12, \"output\": 4}"
+         }
+        }
+       ],
+       "status": {},
+       "flags": 256
+      },
+      {
+       "traceId": "267683297e7041be3535fc4ad1c54189",
+       "spanId": "a18631825ec16cd5",
+       "parentSpanId": "b0ad3df054d5b0e1",
+       "name": "lookup_order",
+       "kind": 1,
+       "startTimeUnixNano": "1792580472519834000",
+       "endTimeUnixNano": "1792580472519946000",
+       "attributes": [
+        {
+         "key": "langfuse.observation.input",
+         "value": {
+          "stringValue": "{\"order\": 42}"
+         }
+        },
+        {
+         "key": "langfuse.observation.type",
+         "value": {
+          "stringValue": "tool"
+         }
+        },
+        {
+         "key": "langfuse.observation.level",
+         "value": {
+          "stringValue": "ERROR"
+         }
+        },
+        {
+         "key": "langfuse.observation.status_message",
+         "value": {
+          "stringValue": "tool exploded"
+         }
+        },
+        {
+         "key": "langfuse.observation.output",
+         "value": {
+          "stringValue": "{\"status\": \"shipped\"}"
+         }
+        }
+       ],
+       "status": {
+        "message": "tool exploded",
+        "code": 2
+       },
+       "flags": 256
+      },
+      {
+       "traceId": "267683297e7041be3535fc4ad1c54189",
+       "spanId": "b0ad3df054d5b0e1",
+       "name": "support-agent",
+       "kind": 1,
+       "startTimeUnixNano": "1792580472518555000",
+       "endTimeUnixNano": "1792580472520120000",
+       "attributes": [
+        {
+         "key": "langfuse.observation.input",
+         "value": {
+          "stringValue": "{\"question\": \"where is my order?\"}"
+         }
+        },
+        {
+         "key": "user.id",
+         "value": {
+          "stringValue": "u-1"
+         }
+        },
+        {
+         "key": "session.id",
+         "value": {
+          "stringValue": "sess-1"
+         }
+        },
+        {
+         "key": "langfuse.trace.tags",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "prod"
+            },
+            {
+             "stringValue": "beta"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "langfuse.trace.metadata.tenant",
+         "value": {
+          "stringValue": "acme"
+         }
+        },
+        {
+         "key": "langfuse.observation.type",
+         "value": {
+          "stringValue": "agent"
+         }
+        },
+        {
+         "key": "langfuse.observation.output",
+         "value": {
+          "stringValue": "{\"answer\": \"It shipped.\"}"
+         }
+        }
+       ],
+       "status": {},
+       "flags": 256
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
