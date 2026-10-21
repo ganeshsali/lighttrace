@@ -65,3 +65,9 @@ def test_deleting_a_project_revokes_its_keys(client):
     assert k["name"] == "key"
     client.delete("/api/projects/gone")
     assert client.post("/runs", json=run(), headers={"x-api-key": k["key"]}).status_code == 401
+
+
+def test_ui_files_are_revalidated(client):
+    """After an upgrade the browser must not keep old UI scripts (the Keys page lives in project.js)."""
+    r = client.get("/static/project.js")
+    assert r.headers["cache-control"] == "no-cache" and "viewKeys" in r.text

@@ -439,6 +439,14 @@ def create_app(settings=None):
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
 
+    @app.middleware("http")
+    async def revalidate_ui(request: Request, call_next):
+        """Browsers re-check UI files (cheap, ETag), so an upgrade never leaves them on old scripts."""
+        resp = await call_next(request)
+        if request.url.path.startswith("/static/"):
+            resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
     @app.get("/")
     def index():
         return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
