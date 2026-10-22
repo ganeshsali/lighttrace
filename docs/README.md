@@ -49,5 +49,5 @@ export OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<your key>
 export OTEL_SERVICE_NAME=my-app
 ```
 
-Instrumentations from OpenInference, OpenLLMetry (`Traceloop.init(api_endpoint=..., headers={"x-api-key": ...})`),
+Instrumentations from OpenTelemetry (official GenAI ones), OpenInference, OpenLLMetry (`Traceloop.init(api_endpoint=..., headers={"x-api-key": ...})`),
 OpenLIT, MLflow and the LangSmith SDK's OTel mode are understood as well.

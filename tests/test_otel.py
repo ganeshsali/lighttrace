@@ -131,7 +131,7 @@ def test_real_otel_sdk_protobuf_gzip(live_server):
     [t] = store.runs("otel-app", {}, "traces")["items"]
     assert t["thread_id"] == "c9" and t["status"] == "error" and t["total_tokens"] == 10
     runs = store.trace(t["id"])["runs"]
-    assert [r["name"] for r in runs] == ["invoke_agent", "chat gpt"]
+    assert [r["name"] for r in runs] == ["invoke_agent", "gpt"]  # operation prefix trimmed
     llm = runs[1]
     assert llm["run_type"] == "llm" and llm["model"] == "gpt-x" and llm["parent_run_id"] == t["id"]
     assert llm["inputs"] == {"messages": [{"role": "user", "content": "yo"}]}

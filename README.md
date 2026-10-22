@@ -87,8 +87,8 @@ What `register()` does:
 
 1. **Finds the frameworks** the app has installed.
 2. **Turns on their listeners.** lighttrace writes none of its own: it uses OpenTelemetry's official GenAI
-   instrumentations, or OpenInference's where the official one is missing or incomplete (LlamaIndex,
-   CrewAI), and the framework's own OpenTelemetry where it has one (ADK, Strands, Microsoft Agent
+   instrumentations, or OpenInference's where the official one is missing or records too little
+   (LangChain/LangGraph, LlamaIndex, CrewAI), and the framework's own OpenTelemetry where it has one (ADK, Strands, Microsoft Agent
    Framework, Semantic Kernel, Pydantic AI). Model clients (OpenAI, Anthropic, Bedrock, Google GenAI,
    Portkey) are traced unless the frameworks present already record their model calls, so a call is
    never recorded twice.
@@ -128,7 +128,7 @@ exporter sent; "documented" means set up from the vendor's docs only.
 
 | Framework | Listener `register()` turns on | Status |
 |---|---|---|
-| [LangChain / LangGraph](docs/langgraph.md) | OpenTelemetry's official (records model calls, tokens, time to first token) | end to end; real payload |
+| [LangChain / LangGraph](docs/langgraph.md) | OpenInference's (the whole graph: every node, chain, model and tool call, with LangChain's own names and your run metadata) + lighttrace's first-token marker | end to end |
 | [LlamaIndex](docs/llamaindex.md) | OpenInference's (the official one records only retrievals today) | end to end |
 | [OpenAI Agents SDK](docs/openai-agents.md) | official + the OpenAI client's (model calls) | end to end, incl. the real model class |
 | [CrewAI](docs/crewai.md) | OpenInference's (no official one yet) | end to end (crewai 1.6.1) |

@@ -15,8 +15,8 @@ requires-python = ">=3.10"
 dependencies = [
     "opentelemetry-sdk>=1.43,<2",
     "opentelemetry-exporter-otlp-proto-http>=1.43,<2",
-    "opentelemetry-instrumentation-genai-langchain>=1.2b0,<2",
-    # OpenInference's where the official listener is missing or incomplete (see client.py)
+    # OpenInference's where the official listener is missing or records too little (see client.py)
+    "openinference-instrumentation-langchain>=0.1.70",
     "openinference-instrumentation-llama-index>=4",
     "openinference-instrumentation-crewai>=1",
     "opentelemetry-instrumentation-genai-openai-agents>=1.2b0,<2",

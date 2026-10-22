@@ -210,7 +210,7 @@ def test_openlit(client):
     """openlit 1.45.0 with OpenAI against a stub server: content as span attributes and in a
     gen_ai.client.inference.operation.details log (the span's own content wins, no duplicates)."""
     t, runs = dialect(client, "openlit")
-    chat = runs["chat gpt-4o-mini"]
+    chat = runs["gpt-4o-mini"]
     assert chat["inputs"]["messages"] == [{"role": "system", "content": "Be brief."},
                                           {"role": "user", "content": "Weather in Pune?"}]
     assert chat["outputs"]["messages"] == [{"role": "assistant", "content": "Hello from the stub."}]
@@ -266,7 +266,7 @@ def test_google_adk(client):
     (content + usage); ADK 2's generate_content child repeats the usage and is not counted again."""
     t, runs = dialect(client, "google_adk")
     assert t["name"] == "invocation" and t["total_tokens"] == 28
-    assert runs["invoke_agent weather_agent"]["run_type"] == "agent"
+    assert runs["weather_agent"]["run_type"] == "agent"
     all_runs = client.get(f"/api/traces/{t['id']}").json()["runs"]
     assert [r["name"] for r in all_runs if r["run_type"] == "llm"] == ["call_llm", "call_llm"]
     call = next(r for r in all_runs if r["name"] == "call_llm" and "tool_calls" in r["outputs"]["messages"][0])
@@ -274,7 +274,7 @@ def test_google_adk(client):
     assert call["inputs"]["messages"][0]["role"] == "system"
     assert call["inputs"]["messages"][1] == {"role": "user", "content": "Weather in Pune?"}
     assert call["outputs"]["messages"][0]["tool_calls"] == [{"name": "weather", "id": None, "args": {"city": "Pune"}}]
-    tool = runs["execute_tool weather"]
+    tool = runs["weather"]
     assert tool["run_type"] == "tool" and tool["inputs"] == {"city": "Pune"} and tool["outputs"] == {"sky": "sunny"}
 
 
@@ -322,10 +322,10 @@ def test_pydantic_ai_logfire(client):
     """Same agent through logfire 5.2 (default instrumentation version): logfire.* attributes stay
     in metadata, and logfire.json_schema decodes the JSON-valued ones."""
     t, runs = dialect(client, "pydantic_ai_logfire")
-    pydantic_ai_checks(t, runs, "execute_tool weather")
-    meta = runs["invoke_agent agent"]["extra"]["metadata"]
+    pydantic_ai_checks(t, runs, "weather")
+    meta = runs["agent"]["extra"]["metadata"]
     assert meta["logfire.msg"] == "agent run" and isinstance(meta["logfire.metrics"], str)
-    assert isinstance(runs["chat test"]["extra"]["metadata"]["model_request_parameters"], dict)
+    assert isinstance(runs["test"]["extra"]["metadata"]["model_request_parameters"], dict)
 
 
 def test_pydantic_ai_0_4_events(client):
@@ -390,8 +390,8 @@ def test_official_otel_langchain_instrumentation(client):
     official gen_ai.response.time_to_first_chunk arrive on the model call; the request gets both."""
     t, runs = dialect(client, "otel_genai_langchain")
     assert (t["name"], t["thread_id"], t["input_preview"], t["output_preview"]) == (
-        "invoke_workflow LangGraph", "t-1", "Weather in Pune?", "It is sunny in Pune.")
+        "LangGraph", "t-1", "Weather in Pune?", "It is sunny in Pune.")
     assert t["total_tokens"] == 17 and 0.4 < t["first_token_time"] < 0.6
-    chat = runs["chat my-vllm-model"]
+    chat = runs["my-vllm-model"]
     assert chat["run_type"] == "llm" and (chat["input_tokens"], chat["output_tokens"]) == (12, 5)
     assert 0.4 < chat["first_token_time"] < 0.6 and chat["model"] == "my-vllm-model"

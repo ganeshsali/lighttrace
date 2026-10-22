@@ -128,6 +128,9 @@ def _run(span, project, runtime, service):
             run["run_type"] = "chain"  # ADK 2 repeats call_llm's usage on a generate_content child: count it once
         elif run["name"].startswith("agent_run"):
             run["run_type"] = "agent"  # ADK 1.x: "agent_run [name]", no attributes
+    op = str(a.get("gen_ai.operation.name") or "")
+    if op and run["name"].startswith(op + " ") and len(run["name"]) > len(op) + 1:
+        run["name"] = run["name"][len(op) + 1:]  # "execute_tool get_stock" -> "get_stock": the type tag says the rest
     if run["run_type"] == "tool" and a.get("ai.toolCall.name"):
         run["name"] = a.pop("ai.toolCall.name")  # Vercel names every tool span "ai.toolCall"
     run["inputs"], run["outputs"] = _io(a, run["run_type"] == "llm")

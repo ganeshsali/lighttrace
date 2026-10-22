@@ -82,7 +82,7 @@ def test_openai_agents(live_server):
     # real model class there is (test_openai_agents_real_model_class).
     assert {"agent", "tool"} <= types(runs)
     tool = next(r for r in runs if r["run_type"] == "tool")
-    assert tool["name"] == "execute_tool weather" and "sunny" in str(tool["outputs"])
+    assert tool["name"] == "weather" and "sunny" in str(tool["outputs"])
 
 
 def test_openai_agents_real_model_class(live_server, openai_stub):

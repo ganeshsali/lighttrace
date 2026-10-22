@@ -17,7 +17,10 @@ log = logging.getLogger("lighttrace")
 # OpenTelemetry's official listeners where they are complete; OpenInference's (Apache-2.0)
 # where the official one is missing or records too little.
 FRAMEWORKS = [
-    ("langchain-core", "opentelemetry.instrumentation.genai.langchain:LangChainInstrumentor", True),  # + LangGraph
+    # + LangGraph. OpenInference's: it records every node and chain with LangChain's own names (the
+    # tree LangSmith shows) and the run's metadata; the official one keeps only workflow, agent,
+    # model and tool spans. Time to first token comes from _mark_first_tokens() below.
+    ("langchain-core", "openinference.instrumentation.langchain:LangChainInstrumentor", True),
     # The official one (1.2b0) records only retrievals: no query, no model call, one trace each.
     ("llama-index-core", "openinference.instrumentation.llama_index:LlamaIndexInstrumentor", True),
     ("crewai", "openinference.instrumentation.crewai:CrewAIInstrumentor", True),  # no official one yet
@@ -61,6 +64,28 @@ def _targets(clients=None):
     return [t[:2] for t in frameworks] + ([t for t in CLIENTS if _installed(t[0])] if clients else [])
 
 
+def _mark_first_tokens(instrumentor):
+    """Put a `new_token` event on each streamed LangChain model call's span at its first token,
+    which is how lighttrace measures time to first token (OpenInference doesn't record it).
+    LangChain's register_configure_hook adds the handler to every run, with no app code."""
+    from contextvars import ContextVar
+
+    from langchain_core.callbacks import BaseCallbackHandler
+    from langchain_core.tracers.context import register_configure_hook
+
+    class FirstToken(BaseCallbackHandler):
+        def __init__(self):
+            self.seen = set()  # ponytail: grows by one id per streamed model call; fine per process
+
+        def on_llm_new_token(self, token, *, run_id, **kwargs):
+            if run_id not in self.seen:
+                self.seen.add(run_id)
+                if (span := instrumentor.get_span(run_id)) is not None:
+                    span.add_event("new_token")
+
+    register_configure_hook(ContextVar("lighttrace_first_token", default=FirstToken()), inheritable=True)
+
+
 def register(project=None, *, endpoint=None, api_key=None, capture_content=True, clients=None):
     """Trace this app to lighttrace. Call once at startup, before the app does any AI work.
 
@@ -89,6 +114,10 @@ def register(project=None, *, endpoint=None, api_key=None, capture_content=True,
     os.environ.setdefault("OTEL_SEMCONV_STABILITY_OPT_IN", "gen_ai_latest_experimental")
     if capture_content:
         os.environ.setdefault("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "SPAN_ONLY")
+    else:  # OpenInference listeners record content unless told not to
+        for var in ("OPENINFERENCE_HIDE_INPUTS", "OPENINFERENCE_HIDE_OUTPUTS",
+                    "OPENINFERENCE_HIDE_INPUT_MESSAGES", "OPENINFERENCE_HIDE_OUTPUT_MESSAGES"):
+            os.environ.setdefault(var, "true")
         os.environ.setdefault("ENABLE_SENSITIVE_DATA", "true")  # Microsoft Agent Framework
         os.environ.setdefault("SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE", "true")
     os.environ.setdefault("SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS", "true")
@@ -124,6 +153,8 @@ def register(project=None, *, endpoint=None, api_key=None, capture_content=True,
             # concern, and a mismatch shouldn't stop the app from starting.
             instrumentor.instrument(tracer_provider=provider, skip_dep_check=True)
             on.append(dist)
+            if dist == "langchain-core":
+                _mark_first_tokens(instrumentor)
         except Exception:
             log.warning("lighttrace: could not trace %s", dist, exc_info=True)
     if _installed("pydantic-ai-slim"):
