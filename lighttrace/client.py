@@ -1,9 +1,9 @@
-"""lighttrace.register(): send an app's AI traces to a lighttrace server.
+"""lighttrace.register(): send an app's AI traces to a LightTrace server.
 
-lighttrace writes no instrumentation of its own. register() turns on the listeners that
+LightTrace writes no instrumentation of its own. register() turns on the listeners that
 already exist for whatever the app has installed (OpenTelemetry's official GenAI
 instrumentations, or the framework's built-in OpenTelemetry) and points one OTLP/HTTP
-sender at lighttrace's receiver.
+sender at LightTrace's receiver.
 """
 
 import logging
@@ -66,7 +66,7 @@ def _targets(clients=None):
 
 def _mark_first_tokens(instrumentor):
     """Put a `new_token` event on each streamed LangChain model call's span at its first token,
-    which is how lighttrace measures time to first token (OpenInference doesn't record it).
+    which is how LightTrace measures time to first token (OpenInference doesn't record it).
     LangChain's register_configure_hook adds the handler to every run, with no app code."""
     from contextvars import ContextVar
 
@@ -114,14 +114,14 @@ def _semantic_kernel_events():
 
 
 def register(project=None, *, endpoint=None, api_key=None, capture_content=True, clients=None):
-    """Trace this app to lighttrace. Call once at startup, before the app does any AI work.
+    """Trace this app to LightTrace. Call once at startup, before the app does any AI work.
 
     Settings default to the environment: LIGHTTRACE_ENDPOINT (the server's base URL),
     LIGHTTRACE_API_KEY (one of the server's LIGHTTRACE_API_KEYS) and LIGHTTRACE_PROJECT
     (else OTEL_SERVICE_NAME). Without an endpoint and a key it does nothing, so the same
     code runs untraced wherever they aren't set.
 
-    capture_content: send prompts, answers, tool arguments and results (lighttrace is
+    capture_content: send prompts, answers, tool arguments and results (LightTrace is
     self-hosted). clients: also trace raw model clients (OpenAI, Anthropic, Bedrock, Google
     GenAI, Portkey); by default only when no framework is installed.
 

@@ -1,12 +1,12 @@
-"""lighttrace's one receiver: OTLP/HTTP (traces, plus GenAI log events) -> lighttrace runs.
+"""LightTrace's one receiver: OTLP/HTTP (traces, plus GenAI log events) -> LightTrace runs.
 
-Each span becomes one lighttrace run (see store.py).
+Each span becomes one LightTrace run (see store.py).
 Understands the OpenInference (Arize Phoenix) and OTel GenAI semantic conventions (attributes,
 span events and log events), OpenLLMetry, OpenLIT, the Vercel AI SDK (`ai.*`), Langfuse
 (`langfuse.*`), MLflow (`mlflow.*`), the LangSmith SDK's OTel mode (`langsmith.*`), Google ADK
 (`gcp.vertex.agent.*`) and Pydantic AI / Logfire; every attribute it does not map lands in metadata.
 
-Traces: one lighttrace trace per (OTel trace id, service.name), so several services that share
+Traces: one LightTrace trace per (OTel trace id, service.name), so several services that share
 an OTel trace id (A2A, out-of-process MCP servers) never collide; each shows as its own trace,
 findable together with the `otel.trace_id` metadata filter. A span whose parent is remote (in
 another process) hangs under a stand-in root for its service's part of the trace.

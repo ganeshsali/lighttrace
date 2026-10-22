@@ -1,6 +1,6 @@
 <div align="center">
 
-# lighttrace
+# LightTrace
 
 **Self-hosted tracing for AI apps and agents.**<br>
 Two lines in your app, one small server, every model call, tool call and agent step.
@@ -25,10 +25,10 @@ lighttrace.register()   # that's it: LangGraph, CrewAI, OpenAI Agents, Pydantic 
 ```
 
 <p align="center">
-  <img src="docs/images/trace.png" alt="A LangGraph conversation in lighttrace: each turn's run tree with a waterfall, and the model call's messages, tool calls and tokens" width="900">
+  <img src="docs/images/trace.png" alt="A LangGraph conversation in LightTrace: each turn's run tree with a waterfall, and the model call's messages, tool calls and tokens" width="900">
 </p>
 
-## Why lighttrace
+## Why LightTrace
 
 - 🔌 **Two lines, any framework:** `register()` finds what your app uses and turns on the right
   OpenTelemetry listener. That covers 13 agent frameworks, 5 model clients, and anything else that
@@ -167,20 +167,20 @@ returns the same provider.
 **What `register()` does:**
 
 1. **Finds the frameworks** the app has installed.
-2. **Turns on their listeners.** lighttrace writes none of its own. It uses OpenTelemetry's official GenAI
+2. **Turns on their listeners.** LightTrace writes none of its own. It uses OpenTelemetry's official GenAI
    instrumentations, or OpenInference's where the official one is missing or records too little
    (LangChain/LangGraph, LlamaIndex, CrewAI). Where the framework has its own OpenTelemetry (ADK,
    Strands, Microsoft Agent Framework, Semantic Kernel, Pydantic AI), it uses that. Model clients
    (OpenAI, Anthropic, Bedrock, Google GenAI, Portkey) are traced unless the frameworks present
    already record their model calls, so no call is recorded twice.
-3. **Points one sender** at lighttrace with the key and project.
+3. **Points one sender** at LightTrace with the key and project.
 
-If the app already set up OpenTelemetry, `register()` adds lighttrace to it as one more destination.
+If the app already set up OpenTelemetry, `register()` adds LightTrace to it as one more destination.
 
 **Threads (conversations):** put a `thread_id`, `session_id` or `conversation_id` in the run's metadata.
 In LangGraph, that is the usual `config={"configurable": {"thread_id": ...}}`.
 
-### Without the lighttrace package (any language)
+### Without the LightTrace package (any language)
 
 The receiver is standard OpenTelemetry, so any OTLP/HTTP exporter can send to it directly, including other
 languages, an existing OpenTelemetry setup, or the zero-code `opentelemetry-instrument` launcher:
@@ -208,17 +208,17 @@ as separate projects, e.g. `myapp-staging` and `myapp-prod`.
 
 Per-framework notes and runnable examples are in [docs/](docs/README.md). Every framework below is
 tested **end to end**: a test runs its example through `lighttrace.register()` against a live
-lighttrace, with a fake model or a stub model server, so no LLM is called. The versions are the newest
+LightTrace, with a fake model or a stub model server, so no LLM is called. The versions are the newest
 releases, tested on Linux with Python 3.13; each runs in CI on every change.
 
 | Framework | Listener `register()` turns on | Tested with |
 |---|---|---|
-| [LangChain / LangGraph](docs/langgraph.md) | OpenInference's (the whole graph: every node, chain, model and tool call, with LangChain's own names and your run metadata) + lighttrace's first-token marker | langgraph 1.2.16, langchain-core 1.6.13 |
+| [LangChain / LangGraph](docs/langgraph.md) | OpenInference's (the whole graph: every node, chain, model and tool call, with LangChain's own names and your run metadata) + LightTrace's first-token marker | langgraph 1.2.16, langchain-core 1.6.13 |
 | [LlamaIndex](docs/llamaindex.md) | OpenInference's (the official one records only retrievals today) | llama-index-core 0.14.25 |
 | [OpenAI Agents SDK](docs/openai-agents.md) | official + the OpenAI client's (model calls) | openai-agents 0.24.0 |
 | [CrewAI](docs/crewai.md) | OpenInference's (no official one yet) | crewai 1.15.28 |
 | [Pydantic AI](docs/builtin-otel.md#pydantic-ai) | its built-in OpenTelemetry | pydantic-ai-slim 2.59.0; real payloads for 0.4 and Logfire |
-| [Google ADK](docs/builtin-otel.md#google-adk) | its built-in OpenTelemetry | google-adk 2.7.0 (the newest that installs next to lighttrace); real payload for 2.12 |
+| [Google ADK](docs/builtin-otel.md#google-adk) | its built-in OpenTelemetry | google-adk 2.7.0 (the newest that installs next to LightTrace); real payload for 2.12 |
 | [Strands Agents](docs/builtin-otel.md#strands-agents) | its built-in OpenTelemetry | strands-agents 1.62.0 |
 | [Microsoft Agent Framework](docs/builtin-otel.md#microsoft-agent-framework) | its built-in OpenTelemetry | agent-framework-core 1.22.0 |
 | [Semantic Kernel](docs/builtin-otel.md#semantic-kernel) | its built-in OpenTelemetry (prompts and answers put on the span by `register()`) | semantic-kernel 1.45.0 |
@@ -265,7 +265,7 @@ How spans are mapped:
 - **Agents:** agent spans get their own **agent** run type. That covers OpenInference `AGENT`, `gen_ai.operation.name` `invoke_agent` / `create_agent`, Langfuse and OpenLLMetry `agent`, MLflow `AGENT`, and Pydantic AI and ADK agent runs.
 
 **Several services in one trace** (an agent calling another agent over A2A, or an MCP server in its own
-process): lighttrace keeps one trace per *(OTel trace id, `service.name`)*.
+process): LightTrace keeps one trace per *(OTel trace id, `service.name`)*.
 
 - **Separate traces:** each service's part shows as its own trace. All of them carry the OTel trace id in their `otel.trace_id` metadata, so the filter `otel.trace_id:<id>` finds them together.
 - **Remote parents:** a span whose parent is in another process (the OTLP remote-parent flag) hangs under a root for its service's part. If that service is entered several times in one trace, the root covers all of them. The remote parent's span id stays in the span's `otel.remote_parent_span_id` metadata.
@@ -329,7 +329,7 @@ docker run -d --name lighttrace --restart unless-stopped \
   -e LIGHTTRACE_HOST=0.0.0.0 lighttrace
 ```
 
-Inside the container, lighttrace binds to `0.0.0.0` and stores SQLite at `/data/lighttrace.db` (on the
+Inside the container, LightTrace binds to `0.0.0.0` and stores SQLite at `/data/lighttrace.db` (on the
 `lighttrace-data` volume). `-p 127.0.0.1:…` keeps it private on the host. Put a reverse proxy in front
 to expose it (see [HTTPS](#https-with-caddy)).
 
@@ -344,13 +344,13 @@ LIGHTTRACE_DB=postgresql://lighttrace:<password>@<host>:5432/lighttrace
 LIGHTTRACE_RETENTION_DAYS=0          # keep forever
 ```
 
-Create an empty database and a user that owns it; lighttrace creates its tables on start. Any
+Create an empty database and a user that owns it; LightTrace creates its tables on start. Any
 Postgres 12+ should work, including managed ones (Supabase, Neon, RDS); the tests run against 18. Back up
 with your provider's snapshots or `pg_dump`.
 
 ### HTTPS with Caddy
 
-Keep lighttrace on `127.0.0.1:1984` and let Caddy terminate TLS. With a domain:
+Keep LightTrace on `127.0.0.1:1984` and let Caddy terminate TLS. With a domain:
 
 ```
 # /etc/caddy/Caddyfile
@@ -394,7 +394,7 @@ All configuration is through environment variables or a `.env` file; [.env.examp
 
 ## Retention and storage
 
-With `LIGHTTRACE_RETENTION_DAYS` > 0, lighttrace checks every hour and deletes whole traces whose root
+With `LIGHTTRACE_RETENTION_DAYS` > 0, LightTrace checks every hour and deletes whole traces whose root
 started longer ago than that. With `0` nothing is ever deleted, and Postgres is the better choice.
 
 SQLite:
@@ -426,7 +426,7 @@ Run payloads are never logged, since they usually hold user and business data.
 - **No public share links**, on purpose: a share link publishes every prompt and tool result to
   anyone holding it.
 - **OTLP over HTTP only.** It accepts protobuf or JSON, with gzip but not zstd. OTLP logs are read for
-  GenAI content only, and metrics are dropped. Traces produced while lighttrace is down are lost once
+  GenAI content only, and metrics are dropped. Traces produced while LightTrace is down are lost once
   the exporter's short retry gives up, because exporters don't buffer to disk.
 - **Search and stats aren't indexed.** Text search is a `LIKE`/`ILIKE` scan, and percentiles and
   dashboards are computed in Python over the selected time window. That's fine for hundreds of
@@ -503,5 +503,5 @@ Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) (commits are s
 
 [MIT](LICENSE). See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
 
-lighttrace is an independent project, not affiliated with or endorsed by LangChain, Inc.
-"LangSmith" is a trademark of LangChain, Inc.; it is named here only to say which SDK can send to lighttrace.
+LightTrace is an independent project, not affiliated with or endorsed by LangChain, Inc.
+"LangSmith" is a trademark of LangChain, Inc.; it is named here only to say which SDK can send to LightTrace.

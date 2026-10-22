@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping. lighttrace aims to stay small: one process, SQLite by default, plain HTML/CSS/JS
+Thanks for helping. LightTrace aims to stay small: one process, SQLite by default, plain HTML/CSS/JS
 with no build step, and no SDK of its own. Changes that keep it that way are the easiest to merge.
 
 ## Develop

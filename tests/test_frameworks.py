@@ -1,5 +1,5 @@
 """End to end: run each examples/ script (a real framework + its instrumentor, fake models, no LLM
-calls) against a live lighttrace. Each test skips when its framework is not installed."""
+calls) against a live LightTrace. Each test skips when its framework is not installed."""
 import os
 import subprocess
 import sys

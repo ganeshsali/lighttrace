@@ -1,5 +1,5 @@
 """Real LangGraph agent + the real LangSmith SDK in OpenTelemetry mode (settings only, no code
-change) -> a running lighttrace's one receiver -> UI JSON API. Runs examples/demo_app.py."""
+change) -> a running LightTrace's one receiver -> UI JSON API. Runs examples/demo_app.py."""
 
 import os
 import subprocess

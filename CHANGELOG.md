@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to lighttrace are listed here. The format follows
+All notable changes to LightTrace are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
@@ -13,7 +13,7 @@ First release.
 ### Added
 
 - `lighttrace.register()`: two lines in an app turn on the right OpenTelemetry listener for each
-  installed framework and send its traces to lighttrace.
+  installed framework and send its traces to LightTrace.
 - Supported and tested end to end:
   - **Frameworks:** LangChain/LangGraph, LlamaIndex, OpenAI Agents, CrewAI, Pydantic AI, Google ADK, Strands, Microsoft Agent Framework, Semantic Kernel, DSPy, smolagents, Agno and Qwen-Agent.
   - **Raw model clients:** OpenAI, Anthropic, Gemini, Bedrock and Portkey.

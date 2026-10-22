@@ -1,8 +1,8 @@
 # Plain OpenTelemetry (your own spans, any language)
 
-lighttrace's receiver is standard OpenTelemetry, so you can send your own spans, from any language,
-without the lighttrace package. Use the [OpenTelemetry GenAI attribute names](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
-so lighttrace knows what each span is.
+LightTrace's receiver is standard OpenTelemetry, so you can send your own spans, from any language,
+without the LightTrace package. Use the [OpenTelemetry GenAI attribute names](https://opentelemetry.io/docs/specs/semconv/gen-ai/)
+so LightTrace knows what each span is.
 
 In Python, `lighttrace.register()` gives you the sender (and returns the provider):
 

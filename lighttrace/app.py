@@ -1,4 +1,4 @@
-"""lighttrace server: one OpenTelemetry (OTLP/HTTP) receiver + a web UI."""
+"""LightTrace server: one OpenTelemetry (OTLP/HTTP) receiver + a web UI."""
 
 import hashlib
 import hmac
@@ -109,7 +109,7 @@ def create_app(settings=None):
     max_body = int(settings.max_body_mb * 1024 * 1024)
     session_key = hashlib.sha256(b"lighttrace-session:" + settings.password.encode()).digest()
 
-    app = FastAPI(title="lighttrace", version=__version__, docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="LightTrace", version=__version__, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.store = store
 
     # ---------- retention ----------
@@ -166,7 +166,7 @@ def create_app(settings=None):
             warn_once(("otlp-ctype", ctype.split(";")[0]), "unsupported OTLP Content-Type %r", ctype)
             raise HTTPException(415, "expected application/x-protobuf or application/json")
         if kind == "metrics":
-            warn_once("metrics", "ignoring OTLP metrics (lighttrace stores traces only); "
+            warn_once("metrics", "ignoring OTLP metrics (LightTrace stores traces only); "
                                  "set OTEL_METRICS_EXPORTER=none in the app to stop sending them")
         else:
             try:
@@ -331,7 +331,7 @@ def create_app(settings=None):
     @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     def unknown(path: str, request: Request):
         warn_once(("path", request.method, path.split("/")[0]),
-                  "unsupported endpoint %s /%s (lighttrace implements tracing ingest only)", request.method, path)
+                  "unsupported endpoint %s /%s (LightTrace implements tracing ingest only)", request.method, path)
         return Response(status_code=404)
 
     return app
@@ -370,7 +370,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     app = create_app(s)
     where = "postgres" if s.db_path.startswith(("postgres://", "postgresql://")) else s.db_path
-    log.info("lighttrace %s on http://%s:%d, OTLP at /v1/traces (db: %s, retention: %s)", __version__, s.host,
+    log.info("LightTrace %s on http://%s:%d, OTLP at /v1/traces (db: %s, retention: %s)", __version__, s.host,
              s.port, where,
              f"{s.retention_days:g} days" if s.retention_days > 0 else "forever")
     # access_log off: keep logs quiet; payloads are never logged anywhere.

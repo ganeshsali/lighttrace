@@ -1,4 +1,4 @@
-// lighttrace UI core: DOM helper, API, formatting, router, theme, login.
+// LightTrace UI core: DOM helper, API, formatting, router, theme, login.
 // All payload text goes through textContent (never innerHTML).
 "use strict";
 

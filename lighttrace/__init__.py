@@ -1,4 +1,4 @@
-"""lighttrace: self-hosted tracing for AI apps and agents.
+"""LightTrace: self-hosted tracing for AI apps and agents.
 
 In an app:   import lighttrace; lighttrace.register()          (pip install lighttrace)
 The server:  lighttrace                                         (pip install "lighttrace[server]")

@@ -37,7 +37,7 @@ def usage(i, o):
 
 
 def build(replies, fail=False):
-    # a real chat model reports its name in this metadata; lighttrace uses it for the model and its cost
+    # a real chat model reports its name in this metadata; LightTrace uses it for the model and its cost
     model = GenericFakeChatModel(messages=iter(replies)).with_config(metadata={"ls_model_name": "demo-model"})
 
     def agent(state: MessagesState):

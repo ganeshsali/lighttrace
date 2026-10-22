@@ -13,7 +13,7 @@ Fixes go into the latest release only.
 
 ## Deploying safely
 
-- lighttrace binds `127.0.0.1` by default. Expose it through a TLS reverse proxy (see the README's
+- LightTrace binds `127.0.0.1` by default. Expose it through a TLS reverse proxy (see the README's
   Caddy section) and set `LIGHTTRACE_COOKIE_SECURE=true`.
 - Give each app its own key in `LIGHTTRACE_API_KEYS` (long and random, e.g.
   `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`), so one can be removed without the others.

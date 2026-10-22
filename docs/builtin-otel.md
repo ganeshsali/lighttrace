@@ -20,7 +20,7 @@ Nothing else to do; call `register()` before importing ADK's agents. Runnable:
 [`examples/google_adk_demo.py`](../examples/google_adk_demo.py) (a fake model in place of Gemini).
 
 Status: tested end to end with **ADK 2.7.0**, and a real ADK 2.12 payload is tested too. 2.7.0 is the
-newest release that installs next to lighttrace: ADK 2.12 caps OpenTelemetry at 1.42.1, while
+newest release that installs next to LightTrace: ADK 2.12 caps OpenTelemetry at 1.42.1, while
 OpenTelemetry's GenAI listeners need 1.43 or newer.
 
 ADK's top span (`invocation`) carries no input or output; the conversation is on the `call_llm` runs.
@@ -57,7 +57,7 @@ Runnable: [`examples/semantic_kernel_demo.py`](../examples/semantic_kernel_demo.
 
 ## Vercel AI SDK and Mastra (JavaScript)
 
-lighttrace is a Python package, so JavaScript apps use the AI SDK's own OpenTelemetry and send to the
+LightTrace is a Python package, so JavaScript apps use the AI SDK's own OpenTelemetry and send to the
 receiver directly:
 
 ```bash
@@ -72,7 +72,7 @@ startup: `registerTelemetry(new OpenTelemetry())` (from `ai` and `@ai-sdk/otel`)
 `telemetry: { functionId: "..." }` on a call.
 
 AI SDK 5 and 6 instead turn telemetry on per call with `experimental_telemetry: { isEnabled: true }`
-and emit `ai.*` attributes; lighttrace reads those too.
+and emit `ai.*` attributes; LightTrace reads those too.
 
 Runnable: [`examples/vercel-ai/`](../examples/vercel-ai/) (mock model). Tested end to end with
 **AI SDK 7.0.148** on Node 24 (`npm install` in that folder, then `pytest tests/test_frameworks.py -k vercel`).

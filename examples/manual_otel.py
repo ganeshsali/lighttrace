@@ -1,5 +1,5 @@
 """Plain OpenTelemetry spans, no framework: an agent with one LLM call and one tool call.
-lighttrace reads the OTel GenAI attributes (gen_ai.*) on them.
+LightTrace reads the OTel GenAI attributes (gen_ai.*) on them.
 
     pip install opentelemetry-sdk opentelemetry-exporter-otlp-proto-http
     OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:1984 OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<key> \

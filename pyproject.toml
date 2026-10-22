@@ -55,7 +55,7 @@ dependencies = [
 server = ["fastapi>=0.110", "uvicorn>=0.29", "opentelemetry-proto>=1.20"]
 postgres = ["psycopg[binary]>=3.1"]
 test = ["pytest", "httpx", "langgraph", "langchain-core", "langsmith", "psycopg[binary]>=3.1"]
-# Everything for working on lighttrace: pip install -e ".[dev]"
+# Everything for working on LightTrace: pip install -e ".[dev]"
 dev = ["lighttrace[server,postgres,test]", "ruff>=0.17", "build", "twine"]
 
 [project.scripts]
