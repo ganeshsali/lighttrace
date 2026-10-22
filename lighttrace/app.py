@@ -74,7 +74,7 @@ def _float(v):
     try:
         return float(v)
     except ValueError:
-        raise HTTPException(400, f"not a number: {v!r}")
+        raise HTTPException(400, f"not a number: {v!r}") from None
 
 
 def ui_filters(request: Request):
@@ -175,7 +175,7 @@ def create_app(settings=None):
                         else otel.log_messages(req))
             except Exception as e:  # untrusted payload: any shape error is the sender's
                 warn_once(("otlp-bad", type(e).__name__), "rejected OTLP payload: %s", type(e).__name__)
-                raise HTTPException(400, "invalid OTLP payload")
+                raise HTTPException(400, "invalid OTLP payload") from None
             (store.upsert_runs if kind == "traces" else store.attach_messages)(data)
         if "protobuf" in ctype:  # an empty Export*ServiceResponse
             return Response(b"", media_type="application/x-protobuf")
@@ -240,8 +240,8 @@ def create_app(settings=None):
 
     # ---------- UI data API ----------
 
-    R = dict(dependencies=[Depends(session)])
-    W = dict(dependencies=[Depends(session_write)])
+    R = {"dependencies": [Depends(session)]}
+    W = {"dependencies": [Depends(session_write)]}
 
     @app.get("/api/projects", **R)
     def api_projects(since: float | None = None):

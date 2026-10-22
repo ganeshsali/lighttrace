@@ -3,8 +3,9 @@ import os
 import subprocess
 import sys
 
-import lighttrace.client as client
 from conftest import API_KEY
+
+import lighttrace.client as client
 
 
 def test_model_clients_only_where_the_framework_does_not_record_calls(monkeypatch):
@@ -12,7 +13,7 @@ def test_model_clients_only_where_the_framework_does_not_record_calls(monkeypatc
     SDK's official listener leaves them to the OpenAI client listener."""
     installed = {"langchain-core", "openai"}
     monkeypatch.setattr(client, "_installed", lambda d: d in installed)
-    names = lambda **kw: [d for d, _ in client._targets(**kw)]  # noqa: E731
+    names = lambda **kw: [d for d, _ in client._targets(**kw)]
     assert names() == ["langchain-core"]
     assert names(clients=True) == ["langchain-core", "openai"]
     installed.add("openai-agents")

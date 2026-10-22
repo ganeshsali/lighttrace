@@ -45,7 +45,8 @@ def test_writes_need_the_csrf_header(client):
 def test_partial_update_before_full_run(client):
     """Updates merge whatever order they arrive in (OTel log events can come before their span)."""
     r = run()
-    patch = {"id": r["id"], "trace_id": r["id"], "end_time": T0 + 2.5, "outputs": {"output": "done"}, "extra": {"metadata": {"b": 2}}}
+    patch = {"id": r["id"], "trace_id": r["id"], "end_time": T0 + 2.5, "outputs": {"output": "done"},
+             "extra": {"metadata": {"b": 2}}}
     ingest(client, [patch])
     r["extra"] = {"metadata": {"a": 1}}
     ingest(client, [r])
@@ -70,14 +71,16 @@ def test_error_from_a_later_update(client):
 def test_tokens_and_cost_summed_per_trace(client):
     root = run(end_time=T0 + 1)
     child = run(trace_id=root["id"], parent_run_id=root["id"], run_type="llm", extra=FAKE_MODEL, **tokens(3, 4))
-    child2 = run(trace_id=root["id"], parent_run_id=root["id"], run_type="llm", **tokens(1, 2))
+    # a LangChain model whose name is only in LangChain's run metadata
+    child2 = run(trace_id=root["id"], parent_run_id=root["id"], run_type="llm",
+                 extra={"metadata": {"ls_model_name": "other-model"}}, **tokens(1, 2))
     ingest(client, [root, child, child2])
     t = traces(client)[0]
     assert t["total_tokens"] == 10
     assert abs(t["cost"] - (3 * 1.0 + 4 * 2.0) / 1e6) < 1e-12  # only the priced model counts
     assert traces(client, min_tokens=11) == [] and len(traces(client, min_tokens=10)) == 1
     llm = client.get("/api/projects/proj/runs", params={"scope": "runs", "run_type": "llm"}).json()["items"]
-    assert sorted(x["model"] or "" for x in llm) == ["", "fake-model"]
+    assert sorted(x["model"] for x in llm) == ["fake-model", "other-model"]
 
 
 def test_model_call_inside_a_root_model_call_counts_once(client):
@@ -103,7 +106,8 @@ def test_trace_first_token_comes_from_its_llm_run(client):
     runs = client.get(f"/api/traces/{root['id']}").json()["runs"]
     # the root counts from the trace start, the llm run from its own start
     assert {r["run_type"]: round(r["first_token_time"], 6) for r in runs} == {"chain": 1.4, "llm": 0.4}
-    assert round(client.get("/api/projects/proj/thread", params={"id": "ft"}).json()["turns"][0]["first_token_time"], 6) == 1.4
+    turn = client.get("/api/projects/proj/thread", params={"id": "ft"}).json()["turns"][0]
+    assert round(turn["first_token_time"], 6) == 1.4
 
 
 def test_threads_group_turns(client):
@@ -111,7 +115,7 @@ def test_threads_group_turns(client):
                  inputs={"input": f"q{i}"}, outputs={"output": f"a{i}"},
                  extra={"metadata": {"thread_id": "th"}}) for i in range(3)]
     other = run(extra={"metadata": {"session_id": "s2"}})
-    ingest(client, turns + [other])
+    ingest(client, [*turns, other])
     items = client.get("/api/projects/proj/threads").json()["items"]
     th = next(i for i in items if i["thread_id"] == "th")
     assert th["turns"] == 3 and th["first_input"] == "q0" and th["last_output"] == "a2" and th["p50"] == 0.5
@@ -130,7 +134,8 @@ def test_filters_latency_tag_name_and_saved(client):
     assert [t["name"] for t in traces(client, tag="prod")] == ["fast"]
     assert [t["name"] for t in traces(client, name="SLO")] == ["slow"]
     assert client.get("/api/projects/proj/runs", params={"meta": "bad key:x"}).status_code == 400
-    fid = client.post("/api/projects/proj/filters", json={"name": "slow ones", "query": {"min_latency": "1"}}).json()["id"]
+    saved = {"name": "slow ones", "query": {"min_latency": "1"}}
+    fid = client.post("/api/projects/proj/filters", json=saved).json()["id"]
     assert client.get("/api/projects/proj/filters").json() == [{"id": fid, "name": "slow ones",
                                                                 "query": {"min_latency": "1"}}]
     client.delete(f"/api/filters/{fid}")

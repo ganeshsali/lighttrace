@@ -278,7 +278,7 @@
         {
          "key": "gen_ai.prompt",
          "value": {
-          "stringValue": "{\"messages\":[[{\"lc\":1,\"type\":\"constructor\",\"id\":[\"langchain\",\"schema\",\"messages\",\"SystemMessage\"],\"kwargs\":{\"content\":\"You are MIRA-like ERP assistant. Use tools for stock questions.\",\"type\":\"system\"}},{\"lc\":1,\"type\":\"constructor\",\"id\":[\"langchain\",\"schema\",\"messages\",\"HumanMessage\"],\"kwargs\":{\"content\":\"x\",\"type\":\"human\",\"id\":\"6e94f9d3-a89e-438b-b4fd-9d2cadfd36d8\"}}]]}"
+          "stringValue": "{\"messages\":[[{\"lc\":1,\"type\":\"constructor\",\"id\":[\"langchain\",\"schema\",\"messages\",\"SystemMessage\"],\"kwargs\":{\"content\":\"You are an inventory assistant. Use tools for stock questions.\",\"type\":\"system\"}},{\"lc\":1,\"type\":\"constructor\",\"id\":[\"langchain\",\"schema\",\"messages\",\"HumanMessage\"],\"kwargs\":{\"content\":\"x\",\"type\":\"human\",\"id\":\"6e94f9d3-a89e-438b-b4fd-9d2cadfd36d8\"}}]]}"
          }
         },
         {

@@ -134,7 +134,8 @@ def _run(span, project, runtime, service):
         usage = run["outputs"].get("usage")  # an OpenAI-shaped response as the output (MLflow)
     usage = usage if isinstance(usage, dict) else {}
     i = _first(a, "llm.token_count.prompt", "gen_ai.usage.input_tokens", "gen_ai.usage.prompt_tokens",
-               "ai.usage.inputTokens", "ai.usage.promptTokens") or _pick(usage, "input", "prompt_tokens", "input_tokens")
+               "ai.usage.inputTokens", "ai.usage.promptTokens") or _pick(
+        usage, "input", "prompt_tokens", "input_tokens")
     o = _first(a, "llm.token_count.completion", "gen_ai.usage.output_tokens", "gen_ai.usage.completion_tokens",
                "ai.usage.outputTokens", "ai.usage.completionTokens") or _pick(
         usage, "output", "completion_tokens", "output_tokens")
@@ -170,8 +171,8 @@ def _run(span, project, runtime, service):
             run[side] = {"messages": msgs}
     # The LangSmith SDK marks a failed root span OK but still records its exception event.
     run["error"] = _error(span.get("status") or {}, events, a, runtime.get("otel.scope") == "langsmith")
-    run["events"] = [{"name": e.get("name"), "time": _secs(e.get("timeUnixNano")), "kwargs": _attrs(e.get("attributes"))}
-                     for e in events] or None
+    run["events"] = [{"name": e.get("name"), "time": _secs(e.get("timeUnixNano")),
+                      "kwargs": _attrs(e.get("attributes"))} for e in events] or None
     if run_id == trace:
         meta["otel.trace_id"], meta["otel.span_id"] = trace_hex, span_hex
         run["absorb"] = _child_id(trace, span_hex)  # GenAI log events that arrived first (Store.attach_messages)
@@ -405,7 +406,8 @@ def _error(status, events, a, exception_fails=False):
     level, message = a.pop("langfuse.observation.level", None), a.pop("langfuse.observation.status_message", None)
     if level == "ERROR":
         return message or "error"
-    if status.get("code") != STATUS_ERROR and not (exception_fails and any(e.get("name") == "exception" for e in events)):
+    raised = exception_fails and any(e.get("name") == "exception" for e in events)
+    if status.get("code") != STATUS_ERROR and not raised:
         return None
     for e in events:
         if e.get("name") == "exception":

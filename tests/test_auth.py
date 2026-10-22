@@ -1,14 +1,15 @@
 import pytest
-from fastapi.testclient import TestClient
-
 from conftest import PASSWORD
-from lighttrace.app import Settings, create_app
+from fastapi.testclient import TestClient
 from test_otel import kv, span
+
+from lighttrace.app import Settings, create_app
 
 
 def body(service=None):
     res = {"attributes": [kv("service.name", service)]} if service else {}
-    return {"resourceSpans": [{"resource": res, "scopeSpans": [{"spans": [span("b7ad6b7169203331", "", "r", 0, 1, {})]}]}]}
+    spans = [span("b7ad6b7169203331", "", "r", 0, 1, {})]
+    return {"resourceSpans": [{"resource": res, "scopeSpans": [{"spans": spans}]}]}
 
 
 @pytest.fixture
@@ -30,11 +31,11 @@ def test_only_listed_keys_get_in(app):
 def test_projects_are_created_from_the_apps_own_name(app):
     """No project setup: OTEL_SERVICE_NAME (or the x-lighttrace-project header) names the project."""
     c = TestClient(app)
-    c.post("/v1/traces", json=body("mira-local"), headers={"x-api-key": "key-one"})
+    c.post("/v1/traces", json=body("inventory-local"), headers={"x-api-key": "key-one"})
     c.post("/v1/traces", json=body("ignored"), headers={"x-api-key": "key-one", "x-lighttrace-project": "chatassist"})
     c.post("/v1/traces", json=body("unknown_service:python"), headers={"x-api-key": "key-two"})
     c.post("/api/login", json={"password": PASSWORD})
-    assert sorted(p["name"] for p in c.get("/api/projects").json()) == ["chatassist", "default", "mira-local"]
+    assert sorted(p["name"] for p in c.get("/api/projects").json()) == ["chatassist", "default", "inventory-local"]
 
 
 def test_keys_are_required(tmp_path):

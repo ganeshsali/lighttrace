@@ -6,7 +6,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from conftest import API_KEY
 
 EX = Path(__file__).parent.parent / "examples"
@@ -58,7 +57,7 @@ def test_langgraph_openinference(live_server):
 
 def test_llamaindex(live_server):
     traces, trees = run_example(live_server, "llamaindex_demo.py", "llamaindex-demo", "llama_index.core")
-    t, runs = next((t, r) for t, r in zip(traces, trees) if t["input_preview"] == "Weather in Pune?")
+    _t, runs = next((t, r) for t, r in zip(traces, trees, strict=False) if t["input_preview"] == "Weather in Pune?")
     assert {"retriever", "llm", "embedding"} <= types(runs)
     docs = next(r for r in runs if r["run_type"] == "retriever")["outputs"]["documents"]
     assert docs[0]["page_content"] in ("Pune is sunny today.", "Mumbai has heavy rain.")  # mock vectors: any doc
@@ -77,7 +76,7 @@ def test_google_adk(live_server):
 
 
 def test_openai_agents(live_server):
-    [t], [runs] = run_example(live_server, "openai_agents_demo.py", "openai-agents-demo", "agents")
+    [_t], [runs] = run_example(live_server, "openai_agents_demo.py", "openai-agents-demo", "agents")
     # The fake model never calls the OpenAI client, so there is no model call to record; with a
     # real model class there is (test_openai_agents_real_model_class).
     assert {"agent", "tool"} <= types(runs)
@@ -115,7 +114,7 @@ print(Runner.run_sync(Agent(name="weather-agent", tools=[weather], model=model),
 
 
 def test_crewai(live_server):
-    traces, trees = run_example(live_server, "crewai_demo.py", "crewai-demo", "crewai", CREWAI_DISABLE_TELEMETRY="true")
+    traces, _ = run_example(live_server, "crewai_demo.py", "crewai-demo", "crewai", CREWAI_DISABLE_TELEMETRY="true")
     assert traces and any("It is sunny in Pune." in t["output_preview"] for t in traces)
 
 
@@ -179,7 +178,8 @@ def test_model_clients(live_server, model_stub, which, module):
     pytest.importorskip(module)
     url, app = live_server
     env = {**{k: v for k, v in os.environ.items() if not k.startswith(("OTEL_", "LIGHTTRACE_"))},
-           "LIGHTTRACE_ENDPOINT": url, "LIGHTTRACE_API_KEY": API_KEY, "LIGHTTRACE_PROJECT": which, **stub_env(model_stub)}
+           "LIGHTTRACE_ENDPOINT": url, "LIGHTTRACE_API_KEY": API_KEY, "LIGHTTRACE_PROJECT": which,
+           **stub_env(model_stub)}
     r = subprocess.run([sys.executable, str(EX / "model_clients_demo.py"), which], env=env, capture_output=True,
                        text=True, timeout=120)
     assert r.returncode == 0, r.stderr[-3000:]
@@ -197,7 +197,8 @@ def test_vercel_ai(live_server):
     url, app = live_server
     env = {**os.environ, "OTEL_EXPORTER_OTLP_ENDPOINT": url, "OTEL_EXPORTER_OTLP_HEADERS": f"x-api-key={API_KEY}",
            "OTEL_SERVICE_NAME": "vercel-ai"}
-    r = subprocess.run(["node", "index.mjs"], cwd=EX / "vercel-ai", env=env, capture_output=True, text=True, timeout=120)
+    r = subprocess.run(["node", "index.mjs"], cwd=EX / "vercel-ai", env=env, capture_output=True, text=True,
+                       timeout=120)
     assert r.returncode == 0, r.stderr[-3000:]
     [t] = app.state.store.runs("vercel-ai", {}, "traces")["items"]
     runs = app.state.store.trace(t["id"])["runs"]

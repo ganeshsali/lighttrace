@@ -5,12 +5,11 @@
     OTEL_SERVICE_NAME=demo-otel python examples/otel_demo.py
 """
 
+import demo_app
 from openinference.instrumentation.langchain import LangChainInstrumentor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
-import demo_app
 
 provider = TracerProvider()  # service.name from OTEL_SERVICE_NAME
 provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))  # endpoint + headers from OTEL_* env

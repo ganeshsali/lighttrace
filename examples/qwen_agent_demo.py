@@ -21,7 +21,7 @@ from qwen_agent.tools.base import BaseTool, register_tool  # noqa: E402
 @register_tool("weather")
 class Weather(BaseTool):
     description = "Weather for a city."
-    parameters = {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}
+    parameters = {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]}  # noqa: RUF012
 
     def call(self, params, **kwargs):
         return json.dumps({"city": json.loads(params)["city"], "sky": "sunny"})

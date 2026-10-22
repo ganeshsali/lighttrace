@@ -6,9 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from fastapi.testclient import TestClient
-
 from conftest import API_KEY, PASSWORD
+from fastapi.testclient import TestClient
 
 DEMO = Path(__file__).parent.parent / "examples" / "demo_app.py"
 

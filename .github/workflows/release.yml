@@ -1,6 +1,6 @@
 name: release
 
-# Push a tag like v0.1.0 (matching the version in pyproject.toml) to publish.
+# Push a tag like v0.1.0 (matching __version__ in lighttrace/__init__.py) to publish.
 on:
   push:
     tags: ["v*"]
@@ -9,22 +9,58 @@ permissions:
   contents: read
 
 jobs:
-  pypi:
+  build:
     runs-on: ubuntu-latest
-    # PyPI Trusted Publishing: add this repository + workflow + environment as a trusted
-    # publisher on pypi.org first; no API token is stored anywhere.
-    environment: pypi
-    permissions:
-      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - run: pip install build && python -m build
+          python-version: "3.13"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - name: Tag matches the package version
+        run: |
+          version=$(python -c "import re; print(re.search(r'__version__ = \"(.+)\"', open('lighttrace/__init__.py').read())[1])")
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME != version $version"; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    # PyPI Trusted Publishing: add this repository + workflow + environment as a trusted
+    # publisher on pypi.org first; no API token is stored anywhere.
+    environment:
+      name: pypi
+      url: https://pypi.org/p/lighttrace
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
 
+  github-release:
+    needs: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes
+
   image:
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read

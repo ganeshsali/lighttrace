@@ -1,14 +1,33 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "lighttrace"
-version = "0.1.0"
+dynamic = ["version"]  # from lighttrace/__init__.py
 description = "Self-hosted tracing for AI apps and agents: one register() call in the app, one small server"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Ganesh" }]
 requires-python = ">=3.10"
+keywords = ["tracing", "observability", "opentelemetry", "llm", "agents", "genai", "langchain", "langgraph",
+            "self-hosted"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: FastAPI",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Debuggers",
+    "Topic :: System :: Monitoring",
+]
 # What an app installs: the OpenTelemetry sender and OpenTelemetry's official GenAI listeners
 # (small, pure Python; none pulls in the framework it listens to). register() turns on the
 # ones whose framework is installed.
@@ -36,12 +55,27 @@ dependencies = [
 server = ["fastapi>=0.110", "uvicorn>=0.29", "opentelemetry-proto>=1.20"]
 postgres = ["psycopg[binary]>=3.1"]
 test = ["pytest", "httpx", "langgraph", "langchain-core", "langsmith", "psycopg[binary]>=3.1"]
+# Everything for working on lighttrace: pip install -e ".[dev]"
+dev = ["lighttrace[server,postgres,test]", "ruff>=0.17", "build", "twine"]
 
 [project.scripts]
 lighttrace = "lighttrace:main"
 
-[tool.setuptools]
-packages = ["lighttrace"]
+[tool.setuptools.packages.find]
+include = ["lighttrace", "lighttrace.*"]  # lighttrace.static: the UI files
 
 [tool.setuptools.package-data]
 lighttrace = ["static/*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "lighttrace.__version__" }
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E731"]  # small local lambdas as helpers

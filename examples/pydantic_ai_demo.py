@@ -5,9 +5,10 @@
     python examples/pydantic_ai_demo.py
 """
 
-import lighttrace
 from pydantic_ai import Agent
 from pydantic_ai.models.test import TestModel
+
+import lighttrace
 
 lighttrace.register()  # also switches on Pydantic AI's built-in instrumentation
 

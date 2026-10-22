@@ -30,7 +30,7 @@
      {
       "key": "service.name",
       "value": {
-       "stringValue": "mira"
+       "stringValue": "inventory-app"
       }
      },
      {

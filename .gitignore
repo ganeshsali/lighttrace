@@ -10,3 +10,7 @@ build/
 .DS_Store
 node_modules/
 package-lock.json
+.ruff_cache/
+dist/
+# created by Qwen-Agent when its example runs
+workspace/

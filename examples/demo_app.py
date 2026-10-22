@@ -37,12 +37,13 @@ def usage(i, o):
 
 
 def build(replies, fail=False):
-    model = GenericFakeChatModel(messages=iter(replies))
+    # a real chat model reports its name in this metadata; lighttrace uses it for the model and its cost
+    model = GenericFakeChatModel(messages=iter(replies)).with_config(metadata={"ls_model_name": "demo-model"})
 
     def agent(state: MessagesState):
         if fail and len(state["messages"]) > 2:
             raise RuntimeError("ERP API timeout while fetching supplier list")
-        msgs = [SystemMessage("You are MIRA-like ERP assistant. Use tools for stock questions.")] + state["messages"]
+        msgs = [SystemMessage("You are an inventory assistant. Use tools for stock questions.")] + state["messages"]
         time.sleep(0.05)
         return {"messages": [model.invoke(msgs)]}
 
@@ -79,11 +80,13 @@ def main():
                   usage_metadata=usage(140, 40)),
         AIMessage("Stock is 42 in east; I drafted PO-1007 for 500 hex nuts.", usage_metadata=usage(260, 22)),
     ]), "Check hex nuts in east and reorder 500", alice, s1["messages"])
-    turn(build([AIMessage("PO-1007 is a draft for 500 hex nuts; it still needs approval.", usage_metadata=usage(300, 16))]),
+    turn(build([AIMessage("PO-1007 is a draft for 500 hex nuts; it still needs approval.",
+                          usage_metadata=usage(300, 16))]),
          "What's the status of that PO?", alice, s2["messages"])
 
-    turn(build([AIMessage("", tool_calls=[call("get_stock", {"item": "washers"}, "c4")], usage_metadata=usage(110, 12))],
-               fail=True), "Washers stock and best supplier?", {"metadata": {"thread_id": "thread-b", "user_id": "bob"}})
+    turn(build([AIMessage("", tool_calls=[call("get_stock", {"item": "washers"}, "c4")],
+                          usage_metadata=usage(110, 12))], fail=True),
+         "Washers stock and best supplier?", {"metadata": {"thread_id": "thread-b", "user_id": "bob"}})
     turn(build([AIMessage("Hello! Ask me about stock, orders or invoices.", usage_metadata=usage(60, 11))]),
          "hi", {"metadata": {"thread_id": "thread-c", "user_id": "carol"}})
     turn(build([AIMessage("Nightly stock summary: 3 items below reorder level.", usage_metadata=usage(80, 12))]),

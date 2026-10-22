@@ -85,7 +85,8 @@ def bedrock(req):
     tools = (req.get("toolConfig") or {}).get("tools") or []
     last = (req.get("messages") or [{}])[-1].get("content") or []
     if tools and not any("toolResult" in b for b in last):
-        content, stop = [{"toolUse": {"toolUseId": "tool_1", "name": tools[0]["toolSpec"]["name"], "input": ARGS}}], "tool_use"
+        use = {"toolUseId": "tool_1", "name": tools[0]["toolSpec"]["name"], "input": ARGS}
+        content, stop = [{"toolUse": use}], "tool_use"
     else:
         content, stop = [{"text": ANSWER}], "end_turn"
     return {"output": {"message": {"role": "assistant", "content": content}}, "stopReason": stop,

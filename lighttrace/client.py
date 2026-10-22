@@ -83,13 +83,15 @@ def _mark_first_tokens(instrumentor):
                 if (span := instrumentor.get_span(run_id)) is not None:
                     span.add_event("new_token")
 
-    register_configure_hook(ContextVar("lighttrace_first_token", default=FirstToken()), inheritable=True)
+    # One handler for the whole process, shared on purpose: it is what LangChain adds to every run.
+    register_configure_hook(ContextVar("lighttrace_first_token", default=FirstToken()), inheritable=True)  # noqa: B039
 
 
 def _semantic_kernel_events():
     """Semantic Kernel logs prompts and answers as GenAI events (Python log records, one JSON message
     each) for an OpenTelemetry log exporter; put them on the model call's span as span events instead."""
     import json
+
     from opentelemetry import trace
 
     class SpanEvents(logging.Handler):

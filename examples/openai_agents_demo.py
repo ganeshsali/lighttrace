@@ -23,7 +23,8 @@ class FakeModel(Model):
         usage = Usage(requests=1, input_tokens=10, output_tokens=5, total_tokens=15)
         if any(isinstance(i, dict) and i.get("type") == "function_call_output" for i in input):
             text = ResponseOutputText(type="output_text", text="It is sunny in Pune.", annotations=[])
-            out = ResponseOutputMessage(id="msg_1", type="message", role="assistant", status="completed", content=[text])
+            out = ResponseOutputMessage(id="msg_1", type="message", role="assistant", status="completed",
+                                        content=[text])
         else:
             out = ResponseFunctionToolCall(type="function_call", id="fc_1", call_id="call_1", name="weather",
                                            arguments='{"city": "Pune"}', status="completed")

@@ -1,26 +1,69 @@
+<div align="center">
+
 # lighttrace
 
-Self-hosted tracing with a web UI for **AI apps and agents**. Add two lines to your app:
+**Self-hosted tracing for AI apps and agents.**<br>
+Two lines in your app, one small server, every model call, tool call and agent step.
+
+[![PyPI](https://img.shields.io/pypi/v/lighttrace.svg)](https://pypi.org/project/lighttrace/)
+[![Python](https://img.shields.io/pypi/pyversions/lighttrace.svg)](https://pypi.org/project/lighttrace/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-native-425cc7.svg)](https://opentelemetry.io/)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
+[Quick start](#quick-start) ·
+[Frameworks](#supported-frameworks) ·
+[Docs](docs/README.md) ·
+[Deploy](#deploy) ·
+[Changelog](CHANGELOG.md)
+
+</div>
 
 ```python
 import lighttrace
-lighttrace.register()
+lighttrace.register()   # that's it: LangGraph, CrewAI, OpenAI Agents, Pydantic AI, ... are traced
 ```
 
-and every model call, tool call and agent step shows up in lighttrace, with inputs, outputs, tokens,
-cost, latency and time to first token. `register()` turns on the right listener for whatever the app
-uses: LangChain, LangGraph, LlamaIndex, CrewAI, OpenAI Agents, Pydantic AI, Google ADK, Strands,
-Microsoft Agent Framework, raw OpenAI/Anthropic/Bedrock/Gemini clients and more
-([full list](#supported-frameworks)). The server has **one receiver**, standard OpenTelemetry at
-`/v1/traces`, so anything else that speaks OpenTelemetry (other languages, the Vercel AI SDK) can send too.
+<p align="center">
+  <img src="docs/images/trace.png" alt="A LangGraph conversation in lighttrace: each turn's run tree with a waterfall, and the model call's messages, tool calls and tokens" width="900">
+</p>
 
-- **Small:** the server is one Python process (FastAPI). It uses about 50–100 MB of RAM and runs comfortably on a 2 CPU / 4 GB box.
-- **Your storage:** **SQLite** (one file, the default) or **Postgres**. Traces are kept for N days or **forever**.
-- **Private by default:** sending traces needs an API key and the UI needs a password. The server binds to `127.0.0.1`, and payloads are never logged.
-- **No build step:** the UI is plain HTML/CSS/JS, served by the same process.
+## Why lighttrace
 
-lighttrace is an independent project, not affiliated with or endorsed by LangChain, Inc.
-"LangSmith" is a trademark of LangChain, Inc.; it is named here only to say which SDK can send to lighttrace.
+- 🔌 **Two lines, any framework:** `register()` finds what your app uses and turns on the right
+  OpenTelemetry listener. That covers 13 agent frameworks, 5 model clients, and anything else that
+  speaks OpenTelemetry, in any language.
+- 🧵 **Built for agents:** run trees with waterfalls, threads as one chat across turns, tool calls
+  with arguments and results, and errors with tracebacks.
+- 💸 **Tokens, cost and speed:** per call, per trace and per thread, with P50/P99 latency, time to
+  first token, and a dashboard.
+- 🏠 **Yours:** one Python process with SQLite or Postgres on your own machine. Your prompts never
+  leave it, and there are no accounts or seats to pay for.
+- 🔒 **Private by default:** API keys to send traces, a password for the UI, and localhost only
+  unless you expose it.
+- 🪶 **Light:** about 50–100 MB of RAM, and a plain HTML/JS UI with no build step.
+
+**Works with:** LangChain · LangGraph · LlamaIndex · CrewAI · OpenAI Agents · Pydantic AI ·
+Google ADK · Strands · Microsoft Agent Framework · Semantic Kernel · DSPy · smolagents · Agno ·
+Qwen-Agent · OpenAI · Anthropic · Gemini · Bedrock · Portkey · Vercel AI SDK
+([versions tested](#supported-frameworks))
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/traces.png" alt="Traces list with status, latency, tokens and cost, and a stats sidebar"></td>
+    <td width="50%"><img src="docs/images/trajectory.png" alt="A thread as one conversation: user, AI, tool calls and tool results across turns"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Traces</b>: status, latency, tokens and cost at a glance</td>
+    <td align="center"><b>Threads</b>: the whole conversation, turn by turn</td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="docs/images/dashboard.png" alt="Dashboard: traces and errors, latency P50/P99, tokens and cost over time"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><b>Dashboard</b>: traces, errors, latency, tokens and cost over time</td>
+  </tr>
+</table>
 
 ## Contents
 
@@ -424,8 +467,10 @@ Filters: `since`, `until` (epoch seconds), `status` (`success`/`error`/`pending`
 
 ```bash
 git clone <this repo> && cd lighttrace
-python3.11 -m venv .venv && .venv/bin/pip install -e '.[server,test]'
+python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
+.venv/bin/ruff check .       # lint (config in pyproject.toml)
 .venv/bin/pytest -q          # includes end-to-end LangGraph tests; no LLM calls
+.venv/bin/python -m build && .venv/bin/twine check --strict dist/*   # the package, as released
 ```
 
 - **Framework tests:** the end-to-end tests in `tests/test_frameworks.py` skip unless their framework is
@@ -447,9 +492,16 @@ python3.11 -m venv .venv && .venv/bin/pip install -e '.[server,test]'
   | `lighttrace/store.py` | All SQL (SQLite and Postgres) |
   | `lighttrace/static/` | The UI |
 
+- **Releasing:** bump `__version__` in `lighttrace/__init__.py`, add a section to
+  [CHANGELOG.md](CHANGELOG.md), then push a `v<version>` tag. CI builds the package, checks it and
+  publishes it to PyPI, a GitHub release and `ghcr.io`.
+
 Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) (commits are signed off under the DCO),
 [SECURITY.md](SECURITY.md) for reporting vulnerabilities, and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
+
+lighttrace is an independent project, not affiliated with or endorsed by LangChain, Inc.
+"LangSmith" is a trademark of LangChain, Inc.; it is named here only to say which SDK can send to lighttrace.

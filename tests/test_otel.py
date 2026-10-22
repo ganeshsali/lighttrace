@@ -74,7 +74,8 @@ def test_otlp_json_openinference_and_genai(client):
 def test_one_receiver_only(client):
     """Data comes in only through /v1/*: any other path is a 404, and Basic auth is refused."""
     import base64
-    for method, path in (("post", "/ingest"), ("post", "/api/traces"), ("patch", "/v1/traces/x"), ("post", "/v2/traces")):
+    for method, path in (("post", "/ingest"), ("post", "/api/traces"), ("patch", "/v1/traces/x"),
+                         ("post", "/v2/traces")):
         assert client.request(method.upper(), path, json={}, headers=H).status_code == 404
     basic = "Basic " + base64.b64encode(f"pk:{API_KEY}".encode()).decode()
     assert client.post("/v1/traces", json={}, headers={"authorization": basic}).status_code == 401

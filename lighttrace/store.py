@@ -14,7 +14,7 @@ import statistics
 import threading
 import time
 import uuid
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 
 # Metadata keys that group traces into a thread; the first one set wins.
 THREAD_KEYS = ("thread_id", "session_id", "conversation_id")
@@ -74,7 +74,9 @@ LIST_COLS = ("id, trace_id, parent_run_id, name, run_type, status, start_time, e
 
 def _model(extra):
     params = extra.get("invocation_params") or {}
-    for v in (params.get("model"), params.get("model_name"), params.get("model_id"), params.get("deployment_name")):
+    meta = extra.get("metadata") or {}  # ls_model_name: LangChain's own run metadata for chat models
+    for v in (params.get("model"), params.get("model_name"), params.get("model_id"), params.get("deployment_name"),
+              meta.get("ls_model_name")):
         if v:
             return str(v)
     return None
@@ -94,10 +96,8 @@ def _first_token(events, start):
     times = []
     for e in events:
         if isinstance(e, dict) and e.get("name") in TOKEN_EVENTS and e.get("time"):
-            try:
+            with suppress(TypeError, ValueError):
                 times.append(float(e["time"]))
-            except (TypeError, ValueError):
-                pass
     return min(times) - start if times else None
 
 
@@ -134,7 +134,8 @@ def preview(value, limit=200):
 
 
 def _tree_order(runs, root):
-    """Runs in depth-first order, siblings by start. The root span's children point at an id no row has (see otel.py): those hang under the root."""
+    """Runs in depth-first order, siblings by start. The root span's children point at an id no row
+    has (see otel.py): those hang under the root."""
     ids = {r["id"] for r in runs}
     if root["is_root"]:
         for r in runs:
@@ -197,7 +198,7 @@ class _DB:
                 import psycopg
                 from psycopg.rows import dict_row
             except ImportError:
-                raise SystemExit("lighttrace: Postgres needs psycopg: pip install 'lighttrace[postgres]'")
+                raise SystemExit("lighttrace: Postgres needs psycopg: pip install 'lighttrace[postgres]'") from None
             self.conn = psycopg.connect(self.target, autocommit=True, row_factory=dict_row)
         else:
             self.conn = sqlite3.connect(self.target, check_same_thread=False, isolation_level=None)
@@ -277,7 +278,7 @@ class Store:
     def _upsert(self, run, now):
         run_id = str(run["id"])
         rows = self.db.q("SELECT * FROM runs WHERE id = ?", (run_id,))
-        cur = {c: None for c in COLUMNS}
+        cur = dict.fromkeys(COLUMNS)
         cur.update(rows[0] if rows else {"id": run_id})
         for col in JSON_COLS:
             cur[col] = json.loads(cur[col]) if cur.get(col) else None
@@ -410,7 +411,8 @@ class Store:
             args.append(float(f["max_latency"]))
         if f.get("min_tokens") is not None:
             if scope == "traces":
-                where.append(f"(SELECT COALESCE(SUM(c.total_tokens), 0) FROM runs c WHERE c.trace_id = r.id AND {_llm('c')}) >= ?")
+                where.append("(SELECT COALESCE(SUM(c.total_tokens), 0) FROM runs c "
+                             f"WHERE c.trace_id = r.id AND {_llm('c')}) >= ?")
             else:
                 where.append("COALESCE(r.total_tokens, 0) >= ?")
             args.append(int(f["min_tokens"]))
@@ -475,7 +477,7 @@ class Store:
     def runs(self, project, f, scope="traces", limit=50, offset=0):
         where, args = self._where(project, f, scope)
         rows = self.db.q(f"SELECT {LIST_COLS} FROM runs r WHERE {where} ORDER BY r.start_time DESC LIMIT ? OFFSET ?",
-                         args + [limit + 1, offset])
+                         [*args, limit + 1, offset])
         items = [self._list_item(r) for r in rows[:limit]]
         if scope == "traces":
             self._first_tokens(items)
@@ -492,15 +494,16 @@ class Store:
     def threads(self, project, f, limit=50, offset=0):
         where, args = self._where(project, f, "traces")
         page = self.db.q(
-            f"SELECT r.thread_id, MAX(r.start_time) AS last_start FROM runs r WHERE {where} AND r.thread_id IS NOT NULL "
-            "GROUP BY r.thread_id ORDER BY last_start DESC LIMIT ? OFFSET ?", args + [limit + 1, offset])
+            "SELECT r.thread_id, MAX(r.start_time) AS last_start FROM runs r "
+            f"WHERE {where} AND r.thread_id IS NOT NULL "
+            "GROUP BY r.thread_id ORDER BY last_start DESC LIMIT ? OFFSET ?", [*args, limit + 1, offset])
         ids = [p["thread_id"] for p in page[:limit]]
         if not ids:
             return {"items": [], "has_more": False}
         roots = self.db.q(
             "SELECT id, thread_id, start_time, latency, status, error FROM runs "
             f"WHERE project = ? AND is_root = 1 AND thread_id IN ({_qs(ids)}) ORDER BY start_time",
-            [project] + ids)
+            [project, *ids])
         usage = self._llm_usage([r["id"] for r in roots])
         by = {}
         for r in roots:
@@ -545,7 +548,7 @@ class Store:
             "SELECT id, trace_id, name, model, input_tokens, output_tokens, total_tokens, start_time FROM runs "
             f"WHERE trace_id IN ({_qs(ids)}) AND {_llm()} ORDER BY start_time", ids) if ids else []
         for r in roots:
-            r.update({k: v for k, v in usage.get(r["id"], {}).items()})
+            r.update(usage.get(r["id"], {}))
             r["llm_runs"] = [x for x in llm if x["trace_id"] == r["id"]]
         lat = [r["latency"] for r in roots]
         costs = [r.get("cost") for r in roots if r.get("cost") is not None]

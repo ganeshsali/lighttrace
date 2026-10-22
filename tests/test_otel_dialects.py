@@ -4,7 +4,6 @@ import json
 import uuid
 from pathlib import Path
 
-
 from conftest import API_KEY
 from test_otel import TRACE, kv, span
 
@@ -50,7 +49,8 @@ def test_remote_parent_becomes_root_per_service(client):
     a, b = by_name["agent"], by_name["tools/call search"]
     assert a["id"] == str(uuid.uuid5(uuid.UUID(TRACE), "agent-a"))
     assert a["metadata"]["otel.trace_id"] == b["metadata"]["otel.trace_id"] == TRACE  # find both parts
-    assert round(b["start_time"] - a["start_time"], 6) == 0.1 and round(b["latency"], 6) == 0.35  # widened over both entries
+    # widened over both entries
+    assert round(b["start_time"] - a["start_time"], 6) == 0.1 and round(b["latency"], 6) == 0.35
     assert b["input_preview"] == "q1"
 
     runs = client.get(f"/api/traces/{b['id']}").json()["runs"]
@@ -92,7 +92,8 @@ def test_langfuse_sdk_v3(client):
     assert t["input_preview"] == "where is my order?" and t["output_preview"] == "It shipped."
     root, gen, tool = runs
     assert root["run_type"] == "agent" and gen["run_type"] == "llm" and tool["run_type"] == "tool"
-    assert gen["model"] == "fake-model" and (gen["input_tokens"], gen["output_tokens"], gen["total_tokens"]) == (12, 4, 16)
+    assert gen["model"] == "fake-model"
+    assert (gen["input_tokens"], gen["output_tokens"], gen["total_tokens"]) == (12, 4, 16)
     assert gen["inputs"] == {"messages": [{"role": "user", "content": "where is my order?"}]}
     assert gen["outputs"] == {"messages": [{"role": "assistant", "content": "Let me check."}]}
     assert gen["extra"]["invocation_params"]["temperature"] == 0.1 and gen["extra"]["metadata"]["step"] == 1
@@ -103,8 +104,10 @@ def test_agent_spans(client):
     """OpenInference AGENT and GenAI invoke_agent/create_agent map to the agent run type."""
     post(client, {"resourceSpans": [resource("svc", [
         span("1000000000000001", "", "root", 0, 10, {"openinference.span.kind": "AGENT"}),
-        span("1000000000000002", "1000000000000001", "invoke_agent helper", 1, 5, {"gen_ai.operation.name": "invoke_agent"}),
-        span("1000000000000003", "1000000000000001", "create_agent x", 6, 7, {"gen_ai.operation.name": "create_agent"})])]})
+        span("1000000000000002", "1000000000000001", "invoke_agent helper", 1, 5,
+             {"gen_ai.operation.name": "invoke_agent"}),
+        span("1000000000000003", "1000000000000001", "create_agent x", 6, 7,
+             {"gen_ai.operation.name": "create_agent"})])]})
     _, runs = only_trace(client)
     assert [r["run_type"] for r in runs] == ["agent", "agent", "agent"]
     agents = client.get("/api/projects/proj/runs", params={"scope": "runs", "run_type": "agent"}).json()["items"]
@@ -209,7 +212,7 @@ def test_openllmetry(client):
 def test_openlit(client):
     """openlit 1.45.0 with OpenAI against a stub server: content as span attributes and in a
     gen_ai.client.inference.operation.details log (the span's own content wins, no duplicates)."""
-    t, runs = dialect(client, "openlit")
+    _t, runs = dialect(client, "openlit")
     chat = runs["gpt-4o-mini"]
     assert chat["inputs"]["messages"] == [{"role": "system", "content": "Be brief."},
                                           {"role": "user", "content": "Weather in Pune?"}]
@@ -293,7 +296,8 @@ def test_openinference_retriever_and_embedding(client):
         span("4000000000000002", "4000000000000001", "retrieve", 1, 5, {
             "openinference.span.kind": "RETRIEVER", "output.value": "[<NodeWithScore ...>]",
             "retrieval.documents.0.document.content": "Pune is sunny.", "retrieval.documents.0.document.id": "d1",
-            "retrieval.documents.0.document.score": 0.9, "retrieval.documents.0.document.metadata": '{"file": "a.txt"}'}),
+            "retrieval.documents.0.document.score": 0.9,
+            "retrieval.documents.0.document.metadata": '{"file": "a.txt"}'}),
         span("4000000000000003", "4000000000000002", "embed", 1, 2, {
             "openinference.span.kind": "EMBEDDING", "embedding.model_name": "mock",
             "embedding.embeddings.0.embedding.text": "q?", "embedding.embeddings.0.embedding.vector": [0.1, 0.2]})])]})

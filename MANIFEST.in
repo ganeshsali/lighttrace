@@ -1,0 +1,6 @@
+# The sdist: the package plus everything needed to run its tests (which run the examples).
+include CHANGELOG.md
+graft tests
+graft examples
+prune examples/vercel-ai/node_modules
+global-exclude __pycache__ *.py[cod]

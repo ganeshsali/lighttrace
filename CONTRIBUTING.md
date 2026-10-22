@@ -6,7 +6,8 @@ with no build step, and no SDK of its own. Changes that keep it that way are the
 ## Develop
 
 ```bash
-python3.11 -m venv .venv && .venv/bin/pip install -e '.[server,test]'
+python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
+.venv/bin/ruff check .        # must pass; `ruff check --fix .` fixes most findings
 .venv/bin/pytest -q
 ```
 
@@ -25,7 +26,9 @@ tables), e.g. `docker run --rm -e POSTGRES_PASSWORD=pw -p 5432:5432 postgres:18`
 
 ## Pull requests
 
-- Keep each PR to one change, with a test.
+- Keep each PR to one change, with a test, and a line in [CHANGELOG.md](CHANGELOG.md) under
+  "Unreleased" when users would notice it.
+- `ruff check .` and `pytest` pass (CI runs both).
 - Dependencies must be MIT, BSD or Apache-2.0 licensed (LGPL is fine as an optional extra).
   Heavy ones go behind an optional extra.
 
