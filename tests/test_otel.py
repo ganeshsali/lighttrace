@@ -72,7 +72,7 @@ def test_otlp_json_openinference_and_genai(client):
 
 
 def test_one_receiver_only(client):
-    """The old LangSmith-style API, the Langfuse path and Basic auth are gone: /v1/* is the only way in."""
+    """No LangSmith API, no Langfuse path, no Basic auth: /v1/* is the only way in."""
     import base64
     for method, path in (("get", "/info"), ("post", "/runs/batch"), ("post", "/runs"), ("patch", "/runs/x"),
                          ("post", "/api/public/otel/v1/traces")):

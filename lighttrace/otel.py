@@ -71,7 +71,7 @@ def log_messages(request):
     for _, service, _, sl in _resources(request, "Logs", None):
         for rec in sorted(sl.get("logRecords") or [], key=lambda r: int(r.get("timeUnixNano") or 0)):
             a = _attrs(rec.get("attributes"))
-            body = _value(rec.get("body") or {})
+            body = _json(_value(rec.get("body") or {}))  # a message as a JSON string (Semantic Kernel)
             name = rec.get("eventName") or a.get("event.name")
             found = _event_messages(name, {**a, **body} if isinstance(body, dict) else body if body else a)
             trace_hex, span_hex = _hex(rec.get("traceId")), _hex(rec.get("spanId"))
@@ -116,6 +116,8 @@ def _run(span, project, runtime, service):
     op = str(a.get("gen_ai.operation.name") or "")
     if op and run["name"].startswith(op + " ") and len(run["name"]) > len(op) + 1:
         run["name"] = run["name"][len(op) + 1:]  # "execute_tool get_stock" -> "get_stock": the type tag says the rest
+    if op in ("invoke_agent", "create_agent") and a.get("gen_ai.agent.name"):
+        run["name"] = str(a["gen_ai.agent.name"])  # the AI SDK names agent spans after the model
     if run["run_type"] == "tool" and a.get("ai.toolCall.name"):
         run["name"] = a.pop("ai.toolCall.name")  # Vercel names every tool span "ai.toolCall"
     run["inputs"], run["outputs"] = _io(a, run["run_type"] == "llm")
@@ -309,6 +311,8 @@ def _genai_msg(m):
         if kind in ("tool_call", "tool-call"):
             calls.append({"name": _pick(p, "name", "toolName"), "id": _pick(p, "id", "toolCallId"),
                           "args": _json(_pick(p, "arguments", "input", "args"))})
+        elif kind in ("tool_call_response", "tool-result") and out["role"] == "assistant":
+            continue  # the AI SDK lists tool results in its agent's answer too; they belong to the tool run
         elif kind in ("tool_call_response", "tool-result"):
             out["tool_call_id"] = _pick(p, "id", "toolCallId")
             r = _pick(p, "response", "output", "result")
@@ -345,7 +349,7 @@ def _event_messages(name, body):
                  for side, key in (("inputs", "input"), ("outputs", "output"))}
         return {k: v for k, v in found.items() if v}
     if name == "gen_ai.choice":
-        m = body.get("message")
+        m = _json(body.get("message"))
         return {"outputs": [_event_msg(m if isinstance(m, dict) else {"content": m}, "assistant")]}
     if name in EVENT_ROLES:
         return {"inputs": [_event_msg(body, EVENT_ROLES[name])]}
@@ -381,12 +385,12 @@ def _event_msg(d, role):
     m = {"role": d.get("role") or role,
          "content": content if isinstance(content, str) or content is None else _parts_text(content)
          if isinstance(content, list) else json.dumps(content, ensure_ascii=False, default=str)}
-    calls = [c for c in _list(d.get("tool_calls")) if isinstance(c, dict)]
+    calls = [c for c in _list(_json(d.get("tool_calls"))) if isinstance(c, dict)]
     if calls:
         m["tool_calls"] = [{"name": (c.get("function") or {}).get("name"), "id": c.get("id"),
                             "args": _json((c.get("function") or {}).get("arguments"))} for c in calls]
-    if m["role"] == "tool" and d.get("id"):
-        m["tool_call_id"] = d["id"]
+    if m["role"] == "tool" and (d.get("tool_call_id") or d.get("id")):
+        m["tool_call_id"] = d.get("tool_call_id") or d["id"]
     return m
 
 

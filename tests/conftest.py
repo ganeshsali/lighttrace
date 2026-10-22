@@ -62,34 +62,15 @@ def live_server(db_target):
 
 
 @pytest.fixture
-def openai_stub():
-    """An OpenAI-compatible chat completions server with canned replies: a tool call when tools are
-    offered and no tool result came back yet, else a short answer. No real model, no key."""
-    import json
-    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+def model_stub():
+    """A fake model server (tests/stub.py) speaking the OpenAI, Anthropic, Gemini and Bedrock APIs."""
+    import stub
 
-    class Handler(BaseHTTPRequestHandler):
-        def do_POST(self):
-            req = json.loads(self.rfile.read(int(self.headers["content-length"])))
-            msgs, tools = req.get("messages") or [], req.get("tools")
-            if tools and msgs[-1].get("role") != "tool":
-                msg = {"role": "assistant", "content": None, "tool_calls": [{"id": "call_1", "type": "function",
-                       "function": {"name": tools[0]["function"]["name"], "arguments": '{"city": "Pune"}'}}]}
-            else:
-                msg = {"role": "assistant", "content": "It is sunny in Pune."}
-            body = json.dumps({"id": "c1", "object": "chat.completion", "created": 1, "model": req["model"],
-                               "choices": [{"index": 0, "message": msg, "finish_reason": "stop"}],
-                               "usage": {"prompt_tokens": 11, "completion_tokens": 5, "total_tokens": 16}}).encode()
-            self.send_response(200)
-            self.send_header("content-type", "application/json")
-            self.send_header("content-length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
-
-        def log_message(self, *a):
-            pass
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    threading.Thread(target=server.serve_forever, daemon=True).start()
-    yield f"http://127.0.0.1:{server.server_port}/v1"
+    server, url = stub.start()
+    yield url
     server.shutdown()
+
+
+@pytest.fixture
+def openai_stub(model_stub):
+    yield model_stub + "/v1"

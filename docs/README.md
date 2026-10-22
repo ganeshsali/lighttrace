@@ -35,6 +35,7 @@ tracing of raw model clients (OpenAI, Anthropic, …) on or off. It returns the 
 | [CrewAI](crewai.md) | CrewAI crews |
 | [OpenAI Agents SDK](openai-agents.md) | `openai-agents` |
 | [Frameworks with built-in OpenTelemetry](builtin-otel.md) | Pydantic AI, Google ADK, Strands, Microsoft Agent Framework, Semantic Kernel, Vercel AI SDK / Mastra (JavaScript) |
+| [DSPy, smolagents, Agno, Qwen-Agent, model clients](more-frameworks.md) | Those frameworks, and raw OpenAI / Anthropic / Gemini / Bedrock / Portkey calls |
 | [Plain OpenTelemetry](manual-otel.md) | Your own spans, other languages, no lighttrace package |
 
 ## Without the lighttrace package

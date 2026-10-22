@@ -4,7 +4,7 @@ In an app:   import lighttrace; lighttrace.register()          (pip install ligh
 The server:  lighttrace                                         (pip install "lighttrace[server]")
 """
 
-__version__ = "0.2.0"
+__version__ = "0.1.0"
 
 from .client import register  # noqa: E402  (stdlib-only at import; OpenTelemetry loads inside register)
 

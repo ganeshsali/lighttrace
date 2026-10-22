@@ -86,6 +86,31 @@ def _mark_first_tokens(instrumentor):
     register_configure_hook(ContextVar("lighttrace_first_token", default=FirstToken()), inheritable=True)
 
 
+def _semantic_kernel_events():
+    """Semantic Kernel logs prompts and answers as GenAI events (Python log records, one JSON message
+    each) for an OpenTelemetry log exporter; put them on the model call's span as span events instead."""
+    import json
+    from opentelemetry import trace
+
+    class SpanEvents(logging.Handler):
+        def emit(self, record):
+            name = getattr(record, "event.name", None)
+            if not name:
+                return
+            try:
+                body = json.loads(record.getMessage())
+            except ValueError:
+                body = record.getMessage()
+            body = body if isinstance(body, dict) else {"content": body}
+            trace.get_current_span().add_event(name, {k: v if isinstance(v, (str, bool, int, float)) else json.dumps(v)
+                                                      for k, v in body.items() if v is not None})
+
+    events = logging.getLogger("semantic_kernel.utils.telemetry.model_diagnostics.decorators")
+    events.addHandler(SpanEvents())
+    events.setLevel(logging.INFO)
+    events.propagate = False  # these records hold prompts and answers: keep them out of the app's own logs
+
+
 def register(project=None, *, endpoint=None, api_key=None, capture_content=True, clients=None):
     """Trace this app to lighttrace. Call once at startup, before the app does any AI work.
 
@@ -114,12 +139,12 @@ def register(project=None, *, endpoint=None, api_key=None, capture_content=True,
     os.environ.setdefault("OTEL_SEMCONV_STABILITY_OPT_IN", "gen_ai_latest_experimental")
     if capture_content:
         os.environ.setdefault("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "SPAN_ONLY")
+        os.environ.setdefault("ENABLE_SENSITIVE_DATA", "true")  # Microsoft Agent Framework
+        os.environ.setdefault("SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE", "true")
     else:  # OpenInference listeners record content unless told not to
         for var in ("OPENINFERENCE_HIDE_INPUTS", "OPENINFERENCE_HIDE_OUTPUTS",
                     "OPENINFERENCE_HIDE_INPUT_MESSAGES", "OPENINFERENCE_HIDE_OUTPUT_MESSAGES"):
             os.environ.setdefault(var, "true")
-        os.environ.setdefault("ENABLE_SENSITIVE_DATA", "true")  # Microsoft Agent Framework
-        os.environ.setdefault("SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE", "true")
     os.environ.setdefault("SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS", "true")
 
     from opentelemetry import trace
@@ -164,7 +189,9 @@ def register(project=None, *, endpoint=None, api_key=None, capture_content=True,
             Agent.instrument_all()
         except Exception:
             log.warning("lighttrace: could not trace pydantic-ai", exc_info=True)
-    on += [d for d in BUILT_IN if _installed(d)]
+    if capture_content and _installed("semantic-kernel"):
+        _semantic_kernel_events()
+    on +=[d for d in BUILT_IN if _installed(d)]
     log.info("lighttrace: tracing %s to %s, project %r", ", ".join(on) or "nothing found yet", endpoint, project)
     _provider = provider
     return provider

@@ -79,6 +79,15 @@ def test_tokens_and_cost_summed_per_trace(client):
     assert sorted(x["model"] or "" for x in llm) == ["", "fake-model"]
 
 
+def test_model_call_inside_a_root_model_call_counts_once(client):
+    """A raw client call traced twice (the listener's span, and the SDK's own span inside it, as the
+    Anthropic SDK does). The inner span points at the root span's own id, which no row has."""
+    root = run(run_type="llm", outputs=llm_out(3, 4), end_time="2026-01-01T00:00:01")
+    inner = run(trace_id=root["id"], parent_run_id=str(uuid.uuid4()), run_type="llm", outputs=llm_out(3, 4))
+    ingest(client, [root, inner])
+    assert traces(client)[0]["total_tokens"] == 7
+
+
 def test_trace_first_token_comes_from_its_llm_run(client):
     """A graph root never streams; its first token is the first streamed LLM token inside it."""
     root = run(start_time="2026-01-01T00:00:00", end_time="2026-01-01T00:00:05",

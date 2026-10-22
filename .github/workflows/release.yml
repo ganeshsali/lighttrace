@@ -1,6 +1,6 @@
 name: release
 
-# Push a tag like v0.2.0 (matching the version in pyproject.toml) to publish.
+# Push a tag like v0.1.0 (matching the version in pyproject.toml) to publish.
 on:
   push:
     tags: ["v*"]

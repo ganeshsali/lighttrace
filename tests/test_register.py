@@ -23,6 +23,20 @@ def test_model_clients_only_where_the_framework_does_not_record_calls(monkeypatc
     assert names() == []
 
 
+def test_content_switches_follow_capture_content():
+    """Microsoft Agent Framework and Semantic Kernel record prompts and answers only when switched on."""
+    sensitive = ("ENABLE_SENSITIVE_DATA", "SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE",
+                 "OPENINFERENCE_HIDE_INPUTS")
+    script = ("import os, lighttrace; lighttrace.register(capture_content={}); "
+              f"print([os.environ.get(v) for v in {sensitive!r}])")
+    env = {**{k: v for k, v in os.environ.items() if k not in sensitive}, "LIGHTTRACE_ENDPOINT": "http://127.0.0.1:9",
+           "LIGHTTRACE_API_KEY": API_KEY}
+    out = {c: subprocess.run([sys.executable, "-c", script.format(c)], env=env, capture_output=True, text=True).stdout
+           for c in (True, False)}
+    assert out[True].strip() == "['true', 'true', None]"
+    assert out[False].strip() == "[None, None, 'true']"
+
+
 def test_no_endpoint_or_key_means_no_tracing(monkeypatch):
     monkeypatch.delenv("LIGHTTRACE_ENDPOINT", raising=False)
     monkeypatch.delenv("LIGHTTRACE_API_KEY", raising=False)

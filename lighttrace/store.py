@@ -48,8 +48,11 @@ JSON_COLS = ("inputs", "outputs", "extra", "tags", "events")
 SIMPLE_COLS = ("trace_id", "parent_run_id", "name", "run_type", "error")
 # A model call is often traced twice: by the framework (LangChain's chat-model span) and, inside it,
 # by the client library (the OpenAI SDK's span). Only the outer one counts for tokens, cost and the
-# dashboard; both stay visible in the trace.
-NESTED_LLM = "{t}.run_type = 'llm' AND EXISTS (SELECT 1 FROM runs p WHERE p.id = {t}.parent_run_id AND p.run_type = 'llm')"
+# dashboard; both stay visible in the trace. A parent id that no row has is the root span's (see
+# _tree_order), so then the parent is the trace's root row.
+NESTED_LLM = ("{t}.run_type = 'llm' AND EXISTS (SELECT 1 FROM runs p WHERE p.run_type = 'llm' AND "
+              "(p.id = {t}.parent_run_id OR (p.id = {t}.trace_id AND p.id <> {t}.id AND "
+              "NOT EXISTS (SELECT 1 FROM runs q WHERE q.id = {t}.parent_run_id))))")
 
 
 def _qs(values):

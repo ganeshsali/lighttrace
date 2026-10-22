@@ -1,6 +1,6 @@
 """A one-agent CrewAI crew traced with lighttrace.register(), using a fake LLM (no LLM calls).
 
-    pip install "lighttrace[crewai]" crewai   # and CREWAI_DISABLE_TELEMETRY=true
+    pip install lighttrace crewai   # and CREWAI_DISABLE_TELEMETRY=true
     LIGHTTRACE_ENDPOINT=http://127.0.0.1:1984 LIGHTTRACE_API_KEY=<key> LIGHTTRACE_PROJECT=crewai-demo \
     python examples/crewai_demo.py
 """

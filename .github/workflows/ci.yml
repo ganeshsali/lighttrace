@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:18
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: lighttrace_test
@@ -32,17 +32,48 @@ jobs:
       - run: pytest -q   # SQLite and Postgres variants
 
   frameworks:
-    # End-to-end runs of examples/ with real instrumentors (fake models, no LLM calls).
+    # End-to-end runs of examples/ with real instrumentors and the newest framework releases (fake
+    # models or a stub server, no LLM calls). One environment each, so their pins don't collide.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: langchain-llamaindex-openai-agents-pydantic-adk
+            packages: openinference-instrumentation-langchain llama-index-core openai-agents pydantic-ai-slim google-adk
+          - {name: crewai, packages: crewai}
+          - {name: strands, packages: "strands-agents[openai]"}
+          - {name: agent-framework, packages: agent-framework-core agent-framework-openai}
+          - {name: semantic-kernel, packages: semantic-kernel}
+          - {name: dspy, packages: dspy}
+          - {name: smolagents, packages: "smolagents[openai]"}
+          - {name: agno, packages: agno openai}
+          - {name: qwen-agent, packages: qwen-agent numpy soundfile tqdm}
+          - {name: model-clients, packages: openai anthropic boto3 google-genai portkey-ai}
+    name: frameworks (${{ matrix.name }})
+    env:
+      CREWAI_DISABLE_TELEMETRY: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e '.[server,test]' ${{ matrix.packages }}
+      - run: pytest -q -rs tests/test_frameworks.py tests/test_register.py
+
+  vercel-ai:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - run: >-
-          pip install -e '.[server,test]' openinference-instrumentation-langchain llama-index-core
-          openai-agents pydantic-ai-slim google-adk
-      - run: pytest -q -rs tests/test_frameworks.py tests/test_register.py
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - run: npm install --prefix examples/vercel-ai
+      - run: pip install -e '.[server,test]'
+      - run: pytest -q -rs tests/test_frameworks.py -k vercel
 
   docker:
     runs-on: ubuntu-latest

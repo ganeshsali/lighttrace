@@ -11,7 +11,7 @@ python3.11 -m venv .venv && .venv/bin/pip install -e '.[server,test]'
 ```
 
 Postgres tests run when `LIGHTTRACE_TEST_PG` points at a **throwaway** database (the tests drop its
-tables), e.g. `docker run --rm -e POSTGRES_PASSWORD=pw -p 5432:5432 postgres:16` and
+tables), e.g. `docker run --rm -e POSTGRES_PASSWORD=pw -p 5432:5432 postgres:18` and
 `LIGHTTRACE_TEST_PG=postgresql://postgres:pw@127.0.0.1:5432/postgres`. Framework end-to-end tests
 (`tests/test_frameworks.py`) skip unless their framework is installed.
 
