@@ -131,7 +131,7 @@ exporter sent; "documented" means set up from the vendor's docs only.
 | [LangChain / LangGraph](docs/langgraph.md) | OpenTelemetry's official (records model calls, tokens, time to first token) | end to end; real payload |
 | [LlamaIndex](docs/llamaindex.md) | OpenInference's (the official one records only retrievals today) | end to end |
 | [OpenAI Agents SDK](docs/openai-agents.md) | official + the OpenAI client's (model calls) | end to end, incl. the real model class |
-| [CrewAI](docs/crewai.md) | OpenInference's (no official one yet) | run by hand (see its page) |
+| [CrewAI](docs/crewai.md) | OpenInference's (no official one yet) | end to end (crewai 1.6.1) |
 | [Pydantic AI](docs/builtin-otel.md#pydantic-ai) | its built-in OpenTelemetry | end to end; real payloads for 0.4, 2.x and Logfire |
 | [Google ADK](docs/builtin-otel.md#google-adk) | its built-in OpenTelemetry | end to end (1.10); real payload (2.12) |
 | [Strands Agents](docs/builtin-otel.md#strands-agents) | its built-in OpenTelemetry | documented |

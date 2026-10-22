@@ -11,7 +11,8 @@ OpenTelemetry has no official CrewAI listener yet (it is being built), so `regis
 
 Runnable: [`examples/crewai_demo.py`](../examples/crewai_demo.py) (a fake LLM, no API key).
 
-Status: run by hand with crewai 1.9.3; the test in `tests/test_frameworks.py` skips where CrewAI isn't
-installed. Current CrewAI (1.15) allows OpenTelemetry 1.42 or newer, which lighttrace needs; **CrewAI
-1.9 pins OpenTelemetry 1.34 and can't be installed next to lighttrace**: upgrade CrewAI, or use the
+Status: tested end to end through `register()` with crewai 1.6.1, which is what pip chose when
+installing `lighttrace` and `crewai` together (Python 3.12); the test in `tests/test_frameworks.py` skips
+where CrewAI isn't installed. Some CrewAI releases pin an older OpenTelemetry (1.9 pins 1.34) and can't
+sit next to lighttrace; pip then picks a compatible CrewAI, or use the
 [plain OpenTelemetry route](README.md#without-the-lighttrace-package).
