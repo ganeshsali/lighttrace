@@ -46,6 +46,19 @@ INDEXES = [
 ]
 JSON_COLS = ("inputs", "outputs", "extra", "tags", "events")
 SIMPLE_COLS = ("trace_id", "parent_run_id", "dotted_order", "name", "run_type", "error")
+# A model call is often traced twice: by the framework (LangChain's chat-model span) and, inside it,
+# by the client library (the OpenAI SDK's span). Only the outer one counts for tokens, cost and the
+# dashboard; both stay visible in the trace.
+NESTED_LLM = "{t}.run_type = 'llm' AND EXISTS (SELECT 1 FROM runs p WHERE p.id = {t}.parent_run_id AND p.run_type = 'llm')"
+
+
+def _llm(t="runs"):
+    return f"{t}.run_type = 'llm' AND NOT ({NESTED_LLM.format(t=t)})"
+
+
+# Streamed-token markers: LangChain's own, OpenInference's first chunk, OpenLLMetry's per-chunk event.
+TOKEN_EVENTS = ("new_token", "First Token Stream Event", "gen_ai.content.completion.chunk")
+
 LIST_COLS = ("id, trace_id, parent_run_id, name, run_type, status, start_time, end_time, latency, first_token_time, "
              "error, inputs, outputs, extra, tags, input_tokens, output_tokens, total_tokens, model, thread_id")
 
@@ -118,7 +131,7 @@ def _first_token(events, start):
         return None
     times = []
     for e in events:
-        if isinstance(e, dict) and e.get("name") == "new_token" and e.get("time"):
+        if isinstance(e, dict) and e.get("name") in TOKEN_EVENTS and e.get("time"):
             try:
                 times.append(to_epoch(e["time"]))
             except (TypeError, ValueError):
@@ -443,7 +456,7 @@ class Store:
             args.append(float(f["max_latency"]))
         if f.get("min_tokens") is not None:
             if scope == "traces":
-                where.append("(SELECT COALESCE(SUM(c.total_tokens), 0) FROM runs c WHERE c.trace_id = r.id) >= ?")
+                where.append(f"(SELECT COALESCE(SUM(c.total_tokens), 0) FROM runs c WHERE c.trace_id = r.id AND {_llm('c')}) >= ?")
             else:
                 where.append("COALESCE(r.total_tokens, 0) >= ?")
             args.append(int(f["min_tokens"]))
@@ -458,7 +471,7 @@ class Store:
             return out
         rows = self.db.q(
             "SELECT trace_id, model, SUM(input_tokens) AS i, SUM(output_tokens) AS o, SUM(total_tokens) AS t "
-            f"FROM runs WHERE trace_id IN ({self.db.in_list(trace_ids)}) AND run_type = 'llm' "
+            f"FROM runs WHERE trace_id IN ({self.db.in_list(trace_ids)}) AND {_llm()} "
             "GROUP BY trace_id, model", trace_ids)
         for r in rows:
             u = out.setdefault(r["trace_id"], {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost": None})
@@ -576,7 +589,7 @@ class Store:
         usage = self._llm_usage(ids)
         llm = self.db.q(
             "SELECT id, trace_id, name, model, input_tokens, output_tokens, total_tokens, start_time FROM runs "
-            f"WHERE trace_id IN ({self.db.in_list(ids)}) AND run_type = 'llm' ORDER BY start_time", ids) if ids else []
+            f"WHERE trace_id IN ({self.db.in_list(ids)}) AND {_llm()} ORDER BY start_time", ids) if ids else []
         for r in roots:
             r.update({k: v for k, v in usage.get(r["id"], {}).items()})
             r["llm_runs"] = [x for x in llm if x["trace_id"] == r["id"]]
@@ -619,7 +632,7 @@ class Store:
         roots = self.db.q(f"SELECT latency, status, thread_id FROM runs WHERE project = ? AND is_root = 1{rng}", args)
         per_trace = self.db.q(
             "SELECT trace_id, model, SUM(input_tokens) AS i, SUM(output_tokens) AS o, SUM(total_tokens) AS t "
-            f"FROM runs WHERE project = ? AND run_type = 'llm'{rng} GROUP BY trace_id, model", args)
+            f"FROM runs WHERE project = ? AND {_llm()}{rng} GROUP BY trace_id, model", args)
         tokens, cost, priced = {}, 0.0, False
         for r in per_trace:
             tokens[r["trace_id"]] = tokens.get(r["trace_id"], 0) + (r["t"] or 0)
@@ -655,7 +668,7 @@ class Store:
             s["errors"] += r["status"] == "error"
             s["lat"].append(r["latency"])
         for r in self.db.q(f"SELECT start_time, model, input_tokens AS i, output_tokens AS o, total_tokens AS t "
-                           f"FROM runs WHERE {rng} AND run_type = 'llm'", args):
+                           f"FROM runs WHERE {rng} AND {_llm()}", args):
             s = b(r["start_time"])
             s["tokens"] += r["t"] or 0
             c = self.prices.cost(r["model"], r["i"], r["o"])
@@ -667,7 +680,7 @@ class Store:
 
         groups = {}
         for r in self.db.q(f"SELECT run_type, name, model, latency, status, total_tokens FROM runs "
-                           f"WHERE {rng} AND is_root = 0", args):
+                           f"WHERE {rng} AND is_root = 0 AND NOT ({NESTED_LLM.format(t='runs')})", args):
             key = (r["run_type"] or "other", r["model"] if r["run_type"] == "llm" and r["model"] else r["name"])
             g = groups.setdefault(key, {"lat": [], "errors": 0, "tokens": 0})
             g["lat"].append(r["latency"])

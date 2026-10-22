@@ -336,3 +336,32 @@ def test_pydantic_ai_0_4_events(client):
     chat = next(r for r in runs.values() if r["run_type"] == "llm")
     assert chat["inputs"]["messages"][1] == {"role": "user", "content": "Weather in Pune?"}
     assert "events" not in chat["extra"]["metadata"]
+
+
+def test_nested_model_call_counts_once_and_first_token_events(client):
+    """Framework LLM span with the client library's LLM span inside it (same call, traced twice):
+    tokens count once; the client span's first-chunk event gives time to first token."""
+    root, outer, inner = "5000000000000001", "5000000000000002", "5000000000000003"
+    usage = {"gen_ai.operation.name": "chat", "gen_ai.request.model": "m", "gen_ai.usage.input_tokens": 12,
+             "gen_ai.usage.output_tokens": 5}
+    first = {"name": "First Token Stream Event", "timeUnixNano": str(int(span(inner, "", "x", 400, 0, {})[
+        "startTimeUnixNano"]))}
+    post(client, {"resourceSpans": [resource("svc", [
+        span(inner, outer, "ChatCompletion", 100, 900, usage, events=[first]),
+        span(outer, root, "ChatOpenAI", 50, 950, usage),
+        span(root, "", "LangGraph", 0, 1000, {})])]})
+    t, runs = only_trace(client)
+    assert t["total_tokens"] == 17 and round(t["first_token_time"], 3) == 0.4
+    assert [r["run_type"] for r in runs] == ["chain", "llm", "llm"]  # both stay visible
+    d = client.get("/api/projects/proj/dashboard", params={"since": 0, "until": 2e9}).json()
+    assert [(x["name"], x["count"]) for x in d["top"]["llm"]] == [("m", 1)]
+    assert client.get("/api/projects/proj/stats").json()["total_tokens"] == 17
+
+
+def test_openllmetry_chunk_events_give_first_token(client):
+    chunk = lambda ms: {"name": "gen_ai.content.completion.chunk", "timeUnixNano": span(
+        "6000000000000001", "", "x", ms, 0, {})["startTimeUnixNano"]}
+    post(client, {"resourceSpans": [resource("svc", [span("6000000000000001", "", "openai.chat", 0, 900, {
+        "gen_ai.operation.name": "chat"}, events=[chunk(300), chunk(350)])])]})
+    t, _ = only_trace(client)
+    assert round(t["first_token_time"], 3) == 0.3
