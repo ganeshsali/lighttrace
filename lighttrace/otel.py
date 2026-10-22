@@ -123,6 +123,8 @@ def _run(span, project, runtime, service):
         "name": span.get("name") or "span", "run_type": _run_type(a), "session_name": project,
         "start_time": _secs(span.get("startTimeUnixNano")), "end_time": _secs(span.get("endTimeUnixNano")),
     }
+    if runtime.get("otel.scope") == "openinference.instrumentation.langchain" and run["run_type"] == "agent":
+        run["run_type"] = "chain"  # OpenInference calls any LangChain run with "agent" in its name an agent
     if runtime.get("otel.scope") == "gcp.vertex.agent":  # Google ADK
         if run["run_type"] == "llm" and not _json(a.get("gcp.vertex.agent.llm_request")):
             run["run_type"] = "chain"  # ADK 2 repeats call_llm's usage on a generate_content child: count it once

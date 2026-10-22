@@ -95,3 +95,4 @@ def test_register_langgraph_end_to_end(live_server):
     assert {"LangGraph", "agent", "tools", "get_stock", "GenericFakeChatModel"} <= {r["name"] for r in runs}
     assert [r["name"] for r in runs if r["run_type"] == "tool"] == ["get_stock"]
     assert all(r["extra"]["metadata"].get("thread_id") == "t-9" for r in llms)  # run metadata comes along
+    assert {r["run_type"] for r in runs if r["name"] == "agent"} == {"chain"}  # a node named "agent" is a chain
