@@ -1,0 +1,190 @@
+{
+ "resourceSpans": [
+  {
+   "resource": {
+    "attributes": [
+     {
+      "key": "telemetry.sdk.language",
+      "value": {
+       "stringValue": "python"
+      }
+     },
+     {
+      "key": "telemetry.sdk.name",
+      "value": {
+       "stringValue": "opentelemetry"
+      }
+     },
+     {
+      "key": "telemetry.sdk.version",
+      "value": {
+       "stringValue": "1.45.1"
+      }
+     },
+     {
+      "key": "service.instance.id",
+      "value": {
+       "stringValue": "24fb03d9-410f-4f3b-aab1-197d8d3f83cd"
+      }
+     },
+     {
+      "key": "service.name",
+      "value": {
+       "stringValue": "mira"
+      }
+     },
+     {
+      "key": "telemetry.auto.version",
+      "value": {
+       "stringValue": "0.66b1"
+      }
+     }
+    ]
+   },
+   "scopeSpans": [
+    {
+     "scope": {
+      "name": "opentelemetry.instrumentation.genai.langchain",
+      "version": "1.2b0"
+     },
+     "spans": [
+      {
+       "traceId": "e2e8b57204259b879383b0b5322a8c9c",
+       "spanId": "b64617b6d86ed529",
+       "parentSpanId": "bbda66a2882ff27a",
+       "name": "chat my-vllm-model",
+       "kind": 3,
+       "startTimeUnixNano": "1792656023551353000",
+       "endTimeUnixNano": "1792656024290932000",
+       "attributes": [
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "chat"
+         }
+        },
+        {
+         "key": "gen_ai.request.model",
+         "value": {
+          "stringValue": "my-vllm-model"
+         }
+        },
+        {
+         "key": "gen_ai.provider.name",
+         "value": {
+          "stringValue": "openai"
+         }
+        },
+        {
+         "key": "gen_ai.conversation.id",
+         "value": {
+          "stringValue": "t-1"
+         }
+        },
+        {
+         "key": "gen_ai.request.stream",
+         "value": {
+          "boolValue": true
+         }
+        },
+        {
+         "key": "gen_ai.response.finish_reasons",
+         "value": {
+          "arrayValue": {
+           "values": [
+            {
+             "stringValue": "stop"
+            }
+           ]
+          }
+         }
+        },
+        {
+         "key": "gen_ai.response.model",
+         "value": {
+          "stringValue": "my-vllm-model"
+         }
+        },
+        {
+         "key": "gen_ai.usage.input_tokens",
+         "value": {
+          "intValue": "12"
+         }
+        },
+        {
+         "key": "gen_ai.usage.output_tokens",
+         "value": {
+          "intValue": "5"
+         }
+        },
+        {
+         "key": "gen_ai.response.time_to_first_chunk",
+         "value": {
+          "doubleValue": 0.478309750003973
+         }
+        },
+        {
+         "key": "gen_ai.input.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"user\",\"parts\":[{\"content\":\"Weather in Pune?\",\"type\":\"text\"}],\"name\":null}]"
+         }
+        },
+        {
+         "key": "gen_ai.output.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"assistant\",\"parts\":[{\"content\":\"It is sunny in Pune.\",\"type\":\"text\"}],\"finish_reason\":\"stop\",\"name\":null}]"
+         }
+        }
+       ],
+       "status": {},
+       "flags": 256
+      },
+      {
+       "traceId": "e2e8b57204259b879383b0b5322a8c9c",
+       "spanId": "bbda66a2882ff27a",
+       "name": "invoke_workflow LangGraph",
+       "kind": 1,
+       "startTimeUnixNano": "1792656023548103000",
+       "endTimeUnixNano": "1792656024292894000",
+       "attributes": [
+        {
+         "key": "gen_ai.operation.name",
+         "value": {
+          "stringValue": "invoke_workflow"
+         }
+        },
+        {
+         "key": "gen_ai.workflow.name",
+         "value": {
+          "stringValue": "LangGraph"
+         }
+        },
+        {
+         "key": "gen_ai.input.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"user\",\"parts\":[{\"content\":\"Weather in Pune?\",\"type\":\"text\"}],\"name\":null}]"
+         }
+        },
+        {
+         "key": "gen_ai.output.messages",
+         "value": {
+          "stringValue": "[{\"role\":\"assistant\",\"parts\":[{\"content\":\"It is sunny in Pune.\",\"type\":\"text\"}],\"finish_reason\":\"\",\"name\":null}]"
+         }
+        },
+        {
+         "key": "gen_ai.conversation.id",
+         "value": {
+          "stringValue": "t-1"
+         }
+        }
+       ],
+       "status": {},
+       "flags": 256
+      }
+     ],
+     "schemaUrl": "https://opentelemetry.io/schemas/1.37.0"
+    }
+   ]
+  }
+ ]
+}

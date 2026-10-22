@@ -380,3 +380,16 @@ def test_first_token_as_span_attribute(client):
     t, runs = only_trace(client)
     assert round(t["first_token_time"], 3) == 0.58  # first chunk of the first model call, from the request start
     assert [round(r["first_token_time"] or 0, 3) for r in runs] == [0.58, 0.48, 0.02]
+
+
+def test_official_otel_langchain_instrumentation(client):
+    """opentelemetry-instrumentation-genai-langchain 1.2b0 (OpenTelemetry's own), zero-code via
+    opentelemetry-instrument: LangGraph + streamed ChatOpenAI against a stub server. Tokens and the
+    official gen_ai.response.time_to_first_chunk arrive on the model call; the request gets both."""
+    t, runs = dialect(client, "otel_genai_langchain")
+    assert (t["name"], t["thread_id"], t["input_preview"], t["output_preview"]) == (
+        "invoke_workflow LangGraph", "t-1", "Weather in Pune?", "It is sunny in Pune.")
+    assert t["total_tokens"] == 17 and 0.4 < t["first_token_time"] < 0.6
+    chat = runs["chat my-vllm-model"]
+    assert chat["run_type"] == "llm" and (chat["input_tokens"], chat["output_tokens"]) == (12, 5)
+    assert 0.4 < chat["first_token_time"] < 0.6 and chat["model"] == "my-vllm-model"
