@@ -79,7 +79,7 @@ function RunTree(runs, opts = {}) {
 async function viewTrace(traceId, q) {
   const t = await fetchTrace(traceId, true);
   if (t.thread_id) {
-    // LangSmith shows a threaded trace inside its conversation.
+    // A trace that belongs to a thread opens inside its conversation.
     const nq = new URLSearchParams({ view: "details", trace: traceId });
     if (q.get("run")) nq.set("run", q.get("run"));
     location.replace(href(["p", t.project, "thread", t.thread_id], nq));
@@ -127,7 +127,7 @@ function plainText(v) {
   return JSON.stringify(v, null, 2);
 }
 
-// Flat, ordered, de-duplicated messages across turns (LangSmith's "trajectory").
+// Flat, ordered, de-duplicated messages across turns (the Trajectory view).
 function trajectory(turns) {
   const seen = new Set(), out = [];
   turns.forEach((t, i) => {

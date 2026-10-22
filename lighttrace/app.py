@@ -330,11 +330,6 @@ def create_app(settings=None):
 
     @app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
     def unknown(path: str, request: Request):
-        if path in ("info", "runs", "runs/batch", "runs/multipart") or path.startswith("runs/"):
-            warn_once("langsmith", "an app called the LangSmith API (/%s), which lighttrace doesn't implement; "
-                                   "set LANGSMITH_OTEL_ENABLED=true LANGSMITH_OTEL_ONLY=true and OTEL_EXPORTER_OTLP_* "
-                                   "in that app (see docs/langchain.md)", path)
-            return Response(status_code=404)
         warn_once(("path", request.method, path.split("/")[0]),
                   "unsupported endpoint %s /%s (lighttrace implements tracing ingest only)", request.method, path)
         return Response(status_code=404)

@@ -370,7 +370,6 @@ Run payloads are never logged, since they usually hold user and business data.
 | `401 invalid api key` | The key isn't in the server's `LIGHTTRACE_API_KEYS`. Send it as `x-api-key: <key>` or `Authorization: Bearer <key>`; restart the server after editing `.env` |
 | `415` in the app's exporter logs | The exporter uses gRPC or zstd. Set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` and use gzip or no compression |
 | `413 body too large` | Raise `LIGHTTRACE_MAX_BODY_MB` |
-| Server logs "an app called the LangSmith API" | The app uses the LangSmith SDK's own API. Switch it to OpenTelemetry: `LANGSMITH_OTEL_ENABLED=true LANGSMITH_OTEL_ONLY=true` plus the `OTEL_EXPORTER_OTLP_*` variables (see [docs/langchain.md](docs/langchain.md)), or just use `register()` |
 | Server logs "ignoring OTLP metrics" | Harmless. Set `OTEL_METRICS_EXPORTER=none` in the app to stop sending them |
 | A raw OpenAI / Anthropic / Gemini / Bedrock / Portkey call doesn't show up | `register()` leaves the client listeners off when a framework that records its own model calls (LangChain, LlamaIndex, CrewAI, ADK, ...) is installed, even only as a dependency. Pass `register(clients=True)` |
 | Every model call appears twice | Two listeners record it (e.g. a framework's and the raw client's). Pass `register(clients=False)` |
@@ -380,9 +379,7 @@ Run payloads are never logged, since they usually hold user and business data.
 ## Limits
 
 - **Tracing only, one receiver.** There are no feedback, datasets, experiments/evaluations, annotation
-  queues, prompt hub or playground. There are no LangSmith-style or vendor-specific ingest APIs either:
-  an app that calls the LangSmith API (`/runs/batch`, `/info`) gets a 404, and the server logs
-  once how to switch it.
+  queues, prompt hub or playground. Data comes in only through the OpenTelemetry receiver.
 - **No public share links**, on purpose: a share link publishes every prompt and tool result to
   anyone holding it.
 - **OTLP over HTTP only.** It accepts protobuf or JSON, with gzip but not zstd. OTLP logs are read for

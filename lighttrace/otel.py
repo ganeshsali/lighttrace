@@ -1,6 +1,6 @@
 """lighttrace's one receiver: OTLP/HTTP (traces, plus GenAI log events) -> lighttrace runs.
 
-Spans become the same run dicts the LangSmith SDK sends, so storage and UI are shared.
+Each span becomes one lighttrace run (see store.py).
 Understands the OpenInference (Arize Phoenix) and OTel GenAI semantic conventions (attributes,
 span events and log events), OpenLLMetry, OpenLIT, the Vercel AI SDK (`ai.*`), Langfuse
 (`langfuse.*`), MLflow (`mlflow.*`), the LangSmith SDK's OTel mode (`langsmith.*`), Google ADK
@@ -103,7 +103,7 @@ def _run(span, project, runtime, service):
 
     run = {
         "id": run_id, "trace_id": trace, "parent_run_id": parent,
-        "name": span.get("name") or "span", "run_type": _run_type(a), "session_name": project,
+        "name": span.get("name") or "span", "run_type": _run_type(a), "project": project,
         "start_time": _secs(span.get("startTimeUnixNano")), "end_time": _secs(span.get("endTimeUnixNano")),
     }
     if runtime.get("otel.scope") == "openinference.instrumentation.langchain" and run["run_type"] == "agent":
@@ -183,7 +183,7 @@ def _run(span, project, runtime, service):
         return [run]
     # Several spans of one service can enter the same trace from outside (a server called twice),
     # so the root they share only fills in what is missing and widens to cover them all (see Store).
-    stand_in = {k: run[k] for k in ("session_name", "start_time", "end_time", "inputs", "outputs", "error")}
+    stand_in = {k: run[k] for k in ("project", "start_time", "end_time", "inputs", "outputs", "error")}
     stand_in.update(id=trace, trace_id=trace, name=run["name"], stand_in=True,
                     run_type="agent" if run["run_type"] == "agent" else "chain",
                     extra={"metadata": {"otel.trace_id": trace_hex}, "runtime": runtime})

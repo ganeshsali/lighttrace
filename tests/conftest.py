@@ -46,7 +46,7 @@ def client(db_target):
 
 @pytest.fixture
 def live_server(db_target):
-    """A real uvicorn server on a free port, for the real langsmith SDK to talk to."""
+    """A real uvicorn server on a free port, for apps run in a subprocess to send to."""
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]

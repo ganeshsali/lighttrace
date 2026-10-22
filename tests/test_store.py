@@ -3,11 +3,13 @@ turns spans into these runs is tested in test_otel*.py."""
 import time
 import uuid
 
+T0 = 1767225600.0  # 2026-01-01 00:00:00 UTC
+
 
 def run(**kw):
     rid = kw.pop("id", None) or str(uuid.uuid4())
-    return {"id": rid, "trace_id": kw.pop("trace_id", rid), "name": "root", "run_type": "chain", "start_time": "2026-01-01T00:00:00.000000",
-            "session_name": "proj", "inputs": {"input": "hi"}, **kw}
+    return {"id": rid, "trace_id": kw.pop("trace_id", rid), "name": "root", "run_type": "chain", "start_time": T0,
+            "project": "proj", "inputs": {"input": "hi"}, **kw}
 
 
 def ingest(client, runs):
@@ -18,9 +20,11 @@ def traces(client, **params):
     return client.get("/api/projects/proj/runs", params={"scope": "traces", **params}).json()["items"]
 
 
-def llm_out(i, o):
-    return {"generations": [[{"message": {"lc": 1, "type": "constructor", "kwargs": {
-        "content": "x", "usage_metadata": {"input_tokens": i, "output_tokens": o, "total_tokens": i + o}}}}]]}
+def tokens(i, o):
+    return {"input_tokens": i, "output_tokens": o, "total_tokens": i + o}
+
+
+FAKE_MODEL = {"invocation_params": {"model": "fake-model"}}
 
 
 def test_ui_needs_login(client):
@@ -41,7 +45,7 @@ def test_writes_need_the_csrf_header(client):
 def test_partial_update_before_full_run(client):
     """Updates merge whatever order they arrive in (OTel log events can come before their span)."""
     r = run()
-    patch = {"id": r["id"], "trace_id": r["id"], "end_time": "2026-01-01T00:00:02.500000", "outputs": {"output": "done"}, "extra": {"metadata": {"b": 2}}}
+    patch = {"id": r["id"], "trace_id": r["id"], "end_time": T0 + 2.5, "outputs": {"output": "done"}, "extra": {"metadata": {"b": 2}}}
     ingest(client, [patch])
     r["extra"] = {"metadata": {"a": 1}}
     ingest(client, [r])
@@ -57,19 +61,16 @@ def test_partial_update_before_full_run(client):
 def test_error_from_a_later_update(client):
     r = run()
     ingest(client, [r])
-    ingest(client, [{"id": r["id"], "end_time": "2026-01-01T00:00:01", "error": "Boom\nTraceback"}])
+    ingest(client, [{"id": r["id"], "end_time": T0 + 1, "error": "Boom\nTraceback"}])
     t = traces(client)[0]
     assert t["status"] == "error" and t["error"].startswith("Boom")
     assert traces(client, status="success") == []
 
 
 def test_tokens_and_cost_summed_per_trace(client):
-    root = run(end_time="2026-01-01T00:00:01")
-    child = run(trace_id=root["id"], parent_run_id=root["id"], run_type="llm", outputs=llm_out(3, 4),
-                extra={"metadata": {"ls_model_name": "fake-model"}})
-    child2 = run(trace_id=root["id"], parent_run_id=root["id"], run_type="llm",
-                 outputs={"generations": [[{"text": "y"}]], "llm_output": {"token_usage": {
-                     "prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}}})
+    root = run(end_time=T0 + 1)
+    child = run(trace_id=root["id"], parent_run_id=root["id"], run_type="llm", extra=FAKE_MODEL, **tokens(3, 4))
+    child2 = run(trace_id=root["id"], parent_run_id=root["id"], run_type="llm", **tokens(1, 2))
     ingest(client, [root, child, child2])
     t = traces(client)[0]
     assert t["total_tokens"] == 10
@@ -82,21 +83,21 @@ def test_tokens_and_cost_summed_per_trace(client):
 def test_model_call_inside_a_root_model_call_counts_once(client):
     """A raw client call traced twice (the listener's span, and the SDK's own span inside it, as the
     Anthropic SDK does). The inner span points at the root span's own id, which no row has."""
-    root = run(run_type="llm", outputs=llm_out(3, 4), end_time="2026-01-01T00:00:01")
-    inner = run(trace_id=root["id"], parent_run_id=str(uuid.uuid4()), run_type="llm", outputs=llm_out(3, 4))
+    root = run(run_type="llm", end_time=T0 + 1, **tokens(3, 4))
+    inner = run(trace_id=root["id"], parent_run_id=str(uuid.uuid4()), run_type="llm", **tokens(3, 4))
     ingest(client, [root, inner])
     assert traces(client)[0]["total_tokens"] == 7
 
 
 def test_trace_first_token_comes_from_its_llm_run(client):
     """A graph root never streams; its first token is the first streamed LLM token inside it."""
-    root = run(start_time="2026-01-01T00:00:00", end_time="2026-01-01T00:00:05",
+    root = run(start_time=T0, end_time=T0 + 5,
                extra={"metadata": {"thread_id": "ft"}})
-    llm = run(trace_id=root["id"], parent_run_id=root["id"], run_type="llm", start_time="2026-01-01T00:00:01",
-              end_time="2026-01-01T00:00:03", outputs=llm_out(1, 1),
-              events=[{"name": "start", "time": "2026-01-01T00:00:01"},
-                      {"name": "new_token", "time": "2026-01-01T00:00:01.400000"},
-                      {"name": "new_token", "time": "2026-01-01T00:00:01.500000"}])
+    llm = run(trace_id=root["id"], parent_run_id=root["id"], run_type="llm", start_time=T0 + 1,
+              end_time=T0 + 3, **tokens(1, 1),
+              events=[{"name": "start", "time": T0 + 1},
+                      {"name": "new_token", "time": T0 + 1.4},
+                      {"name": "new_token", "time": T0 + 1.5}])
     ingest(client, [root, llm])
     assert round(traces(client)[0]["first_token_time"], 6) == 1.4
     runs = client.get(f"/api/traces/{root['id']}").json()["runs"]
@@ -106,7 +107,7 @@ def test_trace_first_token_comes_from_its_llm_run(client):
 
 
 def test_threads_group_turns(client):
-    turns = [run(start_time=f"2026-01-01T00:00:0{i}", end_time=f"2026-01-01T00:00:0{i}.5",
+    turns = [run(start_time=T0 + i, end_time=T0 + i + 0.5,
                  inputs={"input": f"q{i}"}, outputs={"output": f"a{i}"},
                  extra={"metadata": {"thread_id": "th"}}) for i in range(3)]
     other = run(extra={"metadata": {"session_id": "s2"}})
@@ -121,8 +122,8 @@ def test_threads_group_turns(client):
 
 
 def test_filters_latency_tag_name_and_saved(client):
-    fast = run(end_time="2026-01-01T00:00:00.1", tags=["prod"], name="fast")
-    slow = run(end_time="2026-01-01T00:00:05", name="slow")
+    fast = run(end_time=T0 + 0.1, tags=["prod"], name="fast")
+    slow = run(end_time=T0 + 5, name="slow")
     ingest(client, [fast, slow])
     assert [t["name"] for t in traces(client, min_latency=1)] == ["slow"]
     assert [t["name"] for t in traces(client, max_latency=1)] == ["fast"]
@@ -141,7 +142,7 @@ def test_stats_and_dashboard(client):
     ok = run(start_time=now - 100, end_time=now - 99)
     bad = run(start_time=now - 50, end_time=now - 47, error="x")
     llm = run(trace_id=ok["id"], parent_run_id=ok["id"], run_type="llm", start_time=now - 100, end_time=now - 99.5,
-              outputs=llm_out(5, 5), extra={"metadata": {"ls_model_name": "fake-model"}})
+              extra=FAKE_MODEL, **tokens(5, 5))
     ingest(client, [ok, bad, llm])
     s = client.get("/api/projects/proj/stats", params={"since": now - 3600}).json()
     assert (s["traces"], s["errors"], s["error_rate"], s["total_tokens"]) == (2, 1, 0.5, 10)
@@ -161,8 +162,8 @@ def test_delete_project(client):
 
 def test_retention(client):
     store = client.app.state.store
-    old, new = run(start_time="2020-01-01T00:00:00"), run(start_time=time.time())
-    old_child = run(trace_id=old["id"], parent_run_id=old["id"], start_time="2020-01-01T00:00:01")
+    old, new = run(start_time=T0 - 6 * 365 * 86400), run(start_time=time.time())
+    old_child = run(trace_id=old["id"], parent_run_id=old["id"], start_time=T0 - 6 * 365 * 86400 + 1)
     ingest(client, [old, old_child, new])
     assert store.delete_older_than(time.time() - 30 * 86400) == 2
     assert [t["id"] for t in traces(client)] == [new["id"]]

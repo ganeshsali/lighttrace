@@ -18,7 +18,7 @@ log = logging.getLogger("lighttrace")
 # where the official one is missing or records too little.
 FRAMEWORKS = [
     # + LangGraph. OpenInference's: it records every node and chain with LangChain's own names (the
-    # tree LangSmith shows) and the run's metadata; the official one keeps only workflow, agent,
+    # run tree) and the run's metadata; the official one keeps only workflow, agent,
     # model and tool spans. Time to first token comes from _mark_first_tokens() below.
     ("langchain-core", "openinference.instrumentation.langchain:LangChainInstrumentor", True),
     # The official one (1.2b0) records only retrievals: no query, no model call, one trace each.

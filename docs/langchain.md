@@ -12,7 +12,7 @@ lighttrace.register()
 with `LIGHTTRACE_ENDPOINT`, `LIGHTTRACE_API_KEY` and `LIGHTTRACE_PROJECT` set ([overview](README.md)).
 
 `register()` turns on **OpenInference's LangChain listener**: every chain, prompt, parser, retriever, model
-call and tool, nested as they ran and named the way LangChain names them (the tree LangSmith shows), with
+call and tool, nested as they ran and named the way LangChain names them, with
 your run metadata and tags, model, tokens and messages. OpenInference doesn't record time to first
 token, so `register()` also adds a small LangChain callback (through LangChain's public
 `register_configure_hook`, no app code) that marks the first streamed token of each model call. Model

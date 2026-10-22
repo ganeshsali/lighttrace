@@ -15,9 +15,8 @@ import threading
 import time
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timezone
 
-# Metadata keys that group traces into a thread, first non-null wins (LangSmith's set).
+# Metadata keys that group traces into a thread; the first one set wins.
 THREAD_KEYS = ("thread_id", "session_id", "conversation_id")
 META_KEY_RE = re.compile(r"^[\w.\-]{1,100}$")
 
@@ -73,54 +72,9 @@ LIST_COLS = ("id, trace_id, parent_run_id, name, run_type, status, start_time, e
 
 # ---------------------------------------------------------------- helpers
 
-def to_epoch(value):
-    """ISO-8601 string (naive = UTC) or number -> epoch seconds."""
-    if value is None or isinstance(value, (int, float)):
-        return value
-    dt = datetime.fromisoformat(str(value))
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
-    return dt.timestamp()
-
-
-def _find_usage(obj, found):
-    if isinstance(obj, dict):
-        usage = obj.get("usage_metadata")
-        if isinstance(usage, dict):
-            found.append(usage)
-            return
-        for v in obj.values():
-            _find_usage(v, found)
-    elif isinstance(obj, list):
-        for v in obj:
-            _find_usage(v, found)
-
-
-def extract_tokens(outputs):
-    """(input, output, total) tokens from an llm run's outputs, or Nones."""
-    if not isinstance(outputs, dict):
-        return None, None, None
-    found = []
-    _find_usage(outputs.get("generations"), found)
-    if found:
-        i = sum(u.get("input_tokens") or 0 for u in found)
-        o = sum(u.get("output_tokens") or 0 for u in found)
-        t = sum(u.get("total_tokens") or 0 for u in found) or i + o
-        return i, o, t
-    llm_output = outputs.get("llm_output") or {}
-    usage = (llm_output.get("token_usage") or llm_output.get("usage")) if isinstance(llm_output, dict) else None
-    if isinstance(usage, dict):
-        i = usage.get("prompt_tokens") or usage.get("input_tokens") or 0
-        o = usage.get("completion_tokens") or usage.get("output_tokens") or 0
-        return i, o, usage.get("total_tokens") or i + o
-    return None, None, None
-
-
 def _model(extra):
-    meta = extra.get("metadata") or {}
     params = extra.get("invocation_params") or {}
-    for v in (meta.get("ls_model_name"), params.get("model"), params.get("model_name"), params.get("model_id"),
-              params.get("deployment_name"), params.get("_type")):
+    for v in (params.get("model"), params.get("model_name"), params.get("model_id"), params.get("deployment_name")):
         if v:
             return str(v)
     return None
@@ -141,7 +95,7 @@ def _first_token(events, start):
     for e in events:
         if isinstance(e, dict) and e.get("name") in TOKEN_EVENTS and e.get("time"):
             try:
-                times.append(to_epoch(e["time"]))
+                times.append(float(e["time"]))
             except (TypeError, ValueError):
                 pass
     return min(times) - start if times else None
@@ -347,7 +301,7 @@ class Store:
                 cur[col] = str(run[col])
         for col in ("start_time", "end_time"):
             if run.get(col) is not None:
-                cur[col] = to_epoch(run[col])
+                cur[col] = float(run[col])
         for col in ("inputs", "outputs", "tags", "events"):
             if run.get(col) is not None:
                 cur[col] = run[col]
@@ -356,8 +310,8 @@ class Store:
             for k, v in run["extra"].items():
                 extra[k] = {**extra[k], **v} if isinstance(v, dict) and isinstance(extra.get(k), dict) else v
             cur["extra"] = extra
-        if run.get("session_name"):
-            cur["project"] = run["session_name"]
+        if run.get("project"):
+            cur["project"] = run["project"]
 
         if not cur.get("trace_id") and not cur.get("parent_run_id"):
             cur["trace_id"] = run_id
@@ -369,11 +323,9 @@ class Store:
         cur["first_token_time"] = ftt if ftt is not None else run.get("first_token_time", cur.get("first_token_time"))
         cur["thread_id"] = _thread_id(cur["extra"])
         if cur.get("run_type") == "llm":
-            tokens = extract_tokens(cur["outputs"])
-            if tokens[2] is None:  # OTel spans carry usage as attributes, not inside outputs
-                tokens = tuple(run[k] if run.get(k) is not None else cur[k]
-                               for k in ("input_tokens", "output_tokens", "total_tokens"))
-            cur["input_tokens"], cur["output_tokens"], cur["total_tokens"] = tokens
+            for col in ("input_tokens", "output_tokens", "total_tokens"):
+                if run.get(col) is not None:
+                    cur[col] = run[col]
             cur["model"] = _model(cur["extra"] or {})
 
         for col in JSON_COLS:
@@ -622,7 +574,7 @@ class Store:
                 "runs": runs}
 
     def stats(self, project, since=None, until=None):
-        """Aggregate stats for a project over a time window (LangSmith's project sidebar)."""
+        """Aggregate stats for a project over a time window (the project sidebar)."""
         rng, args = "", [project]
         if since is not None:
             rng += " AND start_time >= ?"
@@ -654,7 +606,7 @@ class Store:
         }
 
     def dashboard(self, project, since, until, bucket):
-        """Time series per bucket plus top-runs tables (LangSmith's prebuilt dashboard)."""
+        """Time series per bucket plus top-runs tables (the Dashboard tab)."""
         args = [project, since, until]
         rng = "project = ? AND start_time >= ? AND start_time < ?"
         nb = max(1, math.ceil((until - since) / bucket - 1e-9))  # buckets covering [since, until)

@@ -105,7 +105,7 @@ def test_register_langgraph_end_to_end(live_server):
     llms = [r for r in runs if r["run_type"] == "llm"]
     assert len(llms) == 2 and llms[0]["total_tokens"] == 15 and llms[1]["first_token_time"] is not None
     assert llms[0]["model"] == "fake-model"
-    # OpenInference's tree: the graph, its nodes and LangChain's own names, as LangSmith shows them
+    # OpenInference's tree: the graph, its nodes and LangChain's own names
     assert {"LangGraph", "agent", "tools", "get_stock", "GenericFakeChatModel"} <= {r["name"] for r in runs}
     assert [r["name"] for r in runs if r["run_type"] == "tool"] == ["get_stock"]
     assert all(r["extra"]["metadata"].get("thread_id") == "t-9" for r in llms)  # run metadata comes along
