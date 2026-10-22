@@ -7,15 +7,16 @@ Two lines in your app, one small server, every model call, tool call and agent s
 
 [![PyPI](https://img.shields.io/pypi/v/lighttrace.svg)](https://pypi.org/project/lighttrace/)
 [![Python](https://img.shields.io/pypi/pyversions/lighttrace.svg)](https://pypi.org/project/lighttrace/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/ganeshsali/lighttrace/actions/workflows/ci.yml/badge.svg)](https://github.com/ganeshsali/lighttrace/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ganeshsali/lighttrace/blob/main/LICENSE)
 [![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-native-425cc7.svg)](https://opentelemetry.io/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 [Quick start](#quick-start) ·
 [Frameworks](#supported-frameworks) ·
-[Docs](docs/README.md) ·
+[Docs](https://github.com/ganeshsali/lighttrace/blob/main/docs/README.md) ·
 [Deploy](#deploy) ·
-[Changelog](CHANGELOG.md)
+[Changelog](https://github.com/ganeshsali/lighttrace/blob/main/CHANGELOG.md)
 
 </div>
 
@@ -25,7 +26,7 @@ lighttrace.register()   # that's it: LangGraph, CrewAI, OpenAI Agents, Pydantic 
 ```
 
 <p align="center">
-  <img src="docs/images/trace.png" alt="A LangGraph conversation in LightTrace: each turn's run tree with a waterfall, and the model call's messages, tool calls and tokens" width="900">
+  <img src="https://raw.githubusercontent.com/ganeshsali/lighttrace/main/docs/images/trace.png" alt="A LangGraph conversation in LightTrace: each turn's run tree with a waterfall, and the model call's messages, tool calls and tokens" width="900">
 </p>
 
 ## Why LightTrace
@@ -50,15 +51,15 @@ Qwen-Agent · OpenAI · Anthropic · Gemini · Bedrock · Portkey · Vercel AI S
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/traces.png" alt="Traces list with status, latency, tokens and cost, and a stats sidebar"></td>
-    <td width="50%"><img src="docs/images/trajectory.png" alt="A thread as one conversation: user, AI, tool calls and tool results across turns"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/ganeshsali/lighttrace/main/docs/images/traces.png" alt="Traces list with status, latency, tokens and cost, and a stats sidebar"></td>
+    <td width="50%"><img src="https://raw.githubusercontent.com/ganeshsali/lighttrace/main/docs/images/trajectory.png" alt="A thread as one conversation: user, AI, tool calls and tool results across turns"></td>
   </tr>
   <tr>
     <td align="center"><b>Traces</b>: status, latency, tokens and cost at a glance</td>
     <td align="center"><b>Threads</b>: the whole conversation, turn by turn</td>
   </tr>
   <tr>
-    <td colspan="2"><img src="docs/images/dashboard.png" alt="Dashboard: traces and errors, latency P50/P99, tokens and cost over time"></td>
+    <td colspan="2"><img src="https://raw.githubusercontent.com/ganeshsali/lighttrace/main/docs/images/dashboard.png" alt="Dashboard: traces and errors, latency P50/P99, tokens and cost over time"></td>
   </tr>
   <tr>
     <td colspan="2" align="center"><b>Dashboard</b>: traces, errors, latency, tokens and cost over time</td>
@@ -122,7 +123,7 @@ LIGHTTRACE_ENDPOINT=http://127.0.0.1:1984 LIGHTTRACE_API_KEY=<your key> LIGHTTRA
 ```
 
 A project called **demo** appears in the UI, with traces in three threads. Every other framework
-has a similar runnable script in [`examples/`](examples/).
+has a similar runnable script in [`examples/`](https://github.com/ganeshsali/lighttrace/tree/main/examples).
 
 ## Trace your app
 
@@ -192,7 +193,7 @@ export OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<your key>
 export OTEL_SERVICE_NAME=my-app                    # the project
 ```
 
-See [docs/](docs/README.md) for per-framework pages and [plain OpenTelemetry](docs/manual-otel.md).
+See [docs/](https://github.com/ganeshsali/lighttrace/blob/main/docs/README.md) for per-framework pages and [plain OpenTelemetry](https://github.com/ganeshsali/lighttrace/blob/main/docs/manual-otel.md).
 
 ### API keys and projects
 
@@ -206,29 +207,29 @@ as separate projects, e.g. `myapp-staging` and `myapp-prod`.
 
 ## Supported frameworks
 
-Per-framework notes and runnable examples are in [docs/](docs/README.md). Every framework below is
+Per-framework notes and runnable examples are in [docs/](https://github.com/ganeshsali/lighttrace/blob/main/docs/README.md). Every framework below is
 tested **end to end**: a test runs its example through `lighttrace.register()` against a live
 LightTrace, with a fake model or a stub model server, so no LLM is called. The versions are the newest
 releases, tested on Linux with Python 3.13; each runs in CI on every change.
 
 | Framework | Listener `register()` turns on | Tested with |
 |---|---|---|
-| [LangChain / LangGraph](docs/langgraph.md) | OpenInference's (the whole graph: every node, chain, model and tool call, with LangChain's own names and your run metadata) + LightTrace's first-token marker | langgraph 1.2.16, langchain-core 1.6.13 |
-| [LlamaIndex](docs/llamaindex.md) | OpenInference's (the official one records only retrievals today) | llama-index-core 0.14.25 |
-| [OpenAI Agents SDK](docs/openai-agents.md) | official + the OpenAI client's (model calls) | openai-agents 0.24.0 |
-| [CrewAI](docs/crewai.md) | OpenInference's (no official one yet) | crewai 1.15.28 |
-| [Pydantic AI](docs/builtin-otel.md#pydantic-ai) | its built-in OpenTelemetry | pydantic-ai-slim 2.59.0; real payloads for 0.4 and Logfire |
-| [Google ADK](docs/builtin-otel.md#google-adk) | its built-in OpenTelemetry | google-adk 2.7.0 (the newest that installs next to LightTrace); real payload for 2.12 |
-| [Strands Agents](docs/builtin-otel.md#strands-agents) | its built-in OpenTelemetry | strands-agents 1.62.0 |
-| [Microsoft Agent Framework](docs/builtin-otel.md#microsoft-agent-framework) | its built-in OpenTelemetry | agent-framework-core 1.22.0 |
-| [Semantic Kernel](docs/builtin-otel.md#semantic-kernel) | its built-in OpenTelemetry (prompts and answers put on the span by `register()`) | semantic-kernel 1.45.0 |
-| [DSPy](docs/more-frameworks.md) | official + the model client's | dspy 3.4.1 |
-| [smolagents](docs/more-frameworks.md) | official (agent and model calls; no tool spans) | smolagents 1.26.0 |
-| [Agno](docs/more-frameworks.md) | official + the model client's | agno 3.1.8 |
-| [Qwen-Agent](docs/more-frameworks.md) | official + the model client's | qwen-agent 0.0.34 |
-| [OpenAI, Anthropic, Google GenAI, Bedrock, Portkey](docs/more-frameworks.md#raw-model-clients-no-framework) (no framework) | official client listeners | openai 3.36.1, anthropic 2.1.0, google-genai 2.32.0, boto3 1.43.117, portkey-ai 2.3.4 |
-| [Vercel AI SDK](docs/builtin-otel.md#vercel-ai-sdk-and-mastra-javascript) (JavaScript) | its OpenTelemetry integration (`@ai-sdk/otel`), sending to `/v1/traces` | ai 7.0.148 on Node 24; real payload for ai 5 |
-| [Your own spans, any language](docs/manual-otel.md) | plain OpenTelemetry + GenAI attributes | opentelemetry-sdk 1.45.1 |
+| [LangChain / LangGraph](https://github.com/ganeshsali/lighttrace/blob/main/docs/langgraph.md) | OpenInference's (the whole graph: every node, chain, model and tool call, with LangChain's own names and your run metadata) + LightTrace's first-token marker | langgraph 1.2.16, langchain-core 1.6.13 |
+| [LlamaIndex](https://github.com/ganeshsali/lighttrace/blob/main/docs/llamaindex.md) | OpenInference's (the official one records only retrievals today) | llama-index-core 0.14.25 |
+| [OpenAI Agents SDK](https://github.com/ganeshsali/lighttrace/blob/main/docs/openai-agents.md) | official + the OpenAI client's (model calls) | openai-agents 0.24.0 |
+| [CrewAI](https://github.com/ganeshsali/lighttrace/blob/main/docs/crewai.md) | OpenInference's (no official one yet) | crewai 1.15.28 |
+| [Pydantic AI](https://github.com/ganeshsali/lighttrace/blob/main/docs/builtin-otel.md#pydantic-ai) | its built-in OpenTelemetry | pydantic-ai-slim 2.59.0; real payloads for 0.4 and Logfire |
+| [Google ADK](https://github.com/ganeshsali/lighttrace/blob/main/docs/builtin-otel.md#google-adk) | its built-in OpenTelemetry | google-adk 2.7.0 (the newest that installs next to LightTrace); real payload for 2.12 |
+| [Strands Agents](https://github.com/ganeshsali/lighttrace/blob/main/docs/builtin-otel.md#strands-agents) | its built-in OpenTelemetry | strands-agents 1.62.0 |
+| [Microsoft Agent Framework](https://github.com/ganeshsali/lighttrace/blob/main/docs/builtin-otel.md#microsoft-agent-framework) | its built-in OpenTelemetry | agent-framework-core 1.22.0 |
+| [Semantic Kernel](https://github.com/ganeshsali/lighttrace/blob/main/docs/builtin-otel.md#semantic-kernel) | its built-in OpenTelemetry (prompts and answers put on the span by `register()`) | semantic-kernel 1.45.0 |
+| [DSPy](https://github.com/ganeshsali/lighttrace/blob/main/docs/more-frameworks.md) | official + the model client's | dspy 3.4.1 |
+| [smolagents](https://github.com/ganeshsali/lighttrace/blob/main/docs/more-frameworks.md) | official (agent and model calls; no tool spans) | smolagents 1.26.0 |
+| [Agno](https://github.com/ganeshsali/lighttrace/blob/main/docs/more-frameworks.md) | official + the model client's | agno 3.1.8 |
+| [Qwen-Agent](https://github.com/ganeshsali/lighttrace/blob/main/docs/more-frameworks.md) | official + the model client's | qwen-agent 0.0.34 |
+| [OpenAI, Anthropic, Google GenAI, Bedrock, Portkey](https://github.com/ganeshsali/lighttrace/blob/main/docs/more-frameworks.md#raw-model-clients-no-framework) (no framework) | official client listeners | openai 3.36.1, anthropic 2.1.0, google-genai 2.32.0, boto3 1.43.117, portkey-ai 2.3.4 |
+| [Vercel AI SDK](https://github.com/ganeshsali/lighttrace/blob/main/docs/builtin-otel.md#vercel-ai-sdk-and-mastra-javascript) (JavaScript) | its OpenTelemetry integration (`@ai-sdk/otel`), sending to `/v1/traces` | ai 7.0.148 on Node 24; real payload for ai 5 |
+| [Your own spans, any language](https://github.com/ganeshsali/lighttrace/blob/main/docs/manual-otel.md) | plain OpenTelemetry + GenAI attributes | opentelemetry-sdk 1.45.1 |
 
 Also understood when sent over OpenTelemetry: the LangSmith SDK's OTel mode (end to end), MLflow,
 Langfuse SDK v3, OpenLLMetry and OpenLIT (real payloads).
@@ -374,7 +375,7 @@ Then set `LIGHTTRACE_COOKIE_SECURE=true` and point apps at `https://traces.203-0
 
 ### Configuration
 
-All configuration is through environment variables or a `.env` file; [.env.example](.env.example) has every one with comments.
+All configuration is through environment variables or a `.env` file; [.env.example](https://github.com/ganeshsali/lighttrace/blob/main/.env.example) has every one with comments.
 
 **Server:**
 
@@ -466,7 +467,7 @@ Filters: `since`, `until` (epoch seconds), `status` (`success`/`error`/`pending`
 ## Development
 
 ```bash
-git clone <this repo> && cd lighttrace
+git clone https://github.com/ganeshsali/lighttrace.git && cd lighttrace
 python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
 .venv/bin/ruff check .       # lint (config in pyproject.toml)
 .venv/bin/pytest -q          # includes end-to-end LangGraph tests; no LLM calls
@@ -493,15 +494,15 @@ python3 -m venv .venv && .venv/bin/pip install -e '.[dev]'
   | `lighttrace/static/` | The UI |
 
 - **Releasing:** bump `__version__` in `lighttrace/__init__.py`, add a section to
-  [CHANGELOG.md](CHANGELOG.md), then push a `v<version>` tag. CI builds the package, checks it and
+  [CHANGELOG.md](https://github.com/ganeshsali/lighttrace/blob/main/CHANGELOG.md), then push a `v<version>` tag. CI builds the package, checks it and
   publishes it to PyPI, a GitHub release and `ghcr.io`.
 
-Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) (commits are signed off under the DCO),
-[SECURITY.md](SECURITY.md) for reporting vulnerabilities, and the [Code of Conduct](CODE_OF_CONDUCT.md).
+Contributions are welcome: see [CONTRIBUTING.md](https://github.com/ganeshsali/lighttrace/blob/main/CONTRIBUTING.md) (commits are signed off under the DCO),
+[SECURITY.md](https://github.com/ganeshsali/lighttrace/blob/main/SECURITY.md) for reporting vulnerabilities, and the [Code of Conduct](https://github.com/ganeshsali/lighttrace/blob/main/CODE_OF_CONDUCT.md).
 
 ## License
 
-[MIT](LICENSE). See [CHANGELOG.md](CHANGELOG.md) for what changed in each release.
+[MIT](https://github.com/ganeshsali/lighttrace/blob/main/LICENSE). See [CHANGELOG.md](https://github.com/ganeshsali/lighttrace/blob/main/CHANGELOG.md) for what changed in each release.
 
 LightTrace is an independent project, not affiliated with or endorsed by LangChain, Inc.
 "LangSmith" is a trademark of LangChain, Inc.; it is named here only to say which SDK can send to LightTrace.

@@ -28,6 +28,7 @@ classifiers = [
     "Topic :: Software Development :: Debuggers",
     "Topic :: System :: Monitoring",
 ]
+
 # What an app installs: the OpenTelemetry sender and OpenTelemetry's official GenAI listeners
 # (small, pure Python; none pulls in the framework it listens to). register() turns on the
 # ones whose framework is installed.
@@ -49,6 +50,13 @@ dependencies = [
     "opentelemetry-instrumentation-google-genai>=1.2b0,<2",
     "opentelemetry-instrumentation-genai-portkey>=1.2b0,<2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/ganeshsali/lighttrace"
+Documentation = "https://github.com/ganeshsali/lighttrace/tree/main/docs"
+Repository = "https://github.com/ganeshsali/lighttrace"
+Issues = "https://github.com/ganeshsali/lighttrace/issues"
+Changelog = "https://github.com/ganeshsali/lighttrace/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 # The server: pip install "lighttrace[server]" (and [postgres] for a postgresql:// database).

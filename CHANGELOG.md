@@ -27,3 +27,6 @@ First release.
 - Storage in SQLite (default) or Postgres, retention in days or forever, API-key ingest and a
   password-protected UI.
 - Docker image and a PyPI package.
+
+[Unreleased]: https://github.com/ganeshsali/lighttrace/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ganeshsali/lighttrace/releases/tag/v0.1.0
