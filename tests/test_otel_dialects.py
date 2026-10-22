@@ -365,3 +365,18 @@ def test_openllmetry_chunk_events_give_first_token(client):
         "gen_ai.operation.name": "chat"}, events=[chunk(300), chunk(350)])])]})
     t, _ = only_trace(client)
     assert round(t["first_token_time"], 3) == 0.3
+
+
+def test_first_token_as_span_attribute(client):
+    """The OTel GenAI attribute gen_ai.response.time_to_first_chunk (seconds; set by the OpenTelemetry
+    LangChain instrumentation) and OpenLIT's gen_ai.server.time_to_first_token become the run's first token,
+    and the root's comes from its model call."""
+    post(client, {"resourceSpans": [resource("svc", [
+        span("7000000000000001", "", "invoke_agent LangGraph", 0, 1000, {"gen_ai.operation.name": "invoke_agent"}),
+        span("7000000000000002", "7000000000000001", "chat m", 100, 900, {
+            "gen_ai.operation.name": "chat", "gen_ai.response.time_to_first_chunk": 0.48}),
+        span("7000000000000003", "7000000000000001", "chat n", 920, 990, {
+            "gen_ai.operation.name": "chat", "gen_ai.server.time_to_first_token": 0.02})])]})
+    t, runs = only_trace(client)
+    assert round(t["first_token_time"], 3) == 0.58  # first chunk of the first model call, from the request start
+    assert [round(r["first_token_time"] or 0, 3) for r in runs] == [0.58, 0.48, 0.02]

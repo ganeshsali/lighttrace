@@ -364,7 +364,8 @@ class Store:
         cur["status"] = "error" if cur.get("error") else ("success" if cur.get("end_time") else "pending")
         start, end = cur.get("start_time"), cur.get("end_time")
         cur["latency"] = end - start if start is not None and end is not None else None
-        cur["first_token_time"] = _first_token(cur["events"], start)
+        ftt = _first_token(cur["events"], start)  # from token events, else as sent (OTel attribute)
+        cur["first_token_time"] = ftt if ftt is not None else run.get("first_token_time", cur.get("first_token_time"))
         cur["thread_id"] = _thread_id(cur["extra"])
         if cur.get("run_type") == "llm":
             tokens = extract_tokens(cur["outputs"])
