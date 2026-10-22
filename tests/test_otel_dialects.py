@@ -376,10 +376,12 @@ def test_first_token_as_span_attribute(client):
         span("7000000000000002", "7000000000000001", "chat m", 100, 900, {
             "gen_ai.operation.name": "chat", "gen_ai.response.time_to_first_chunk": 0.48}),
         span("7000000000000003", "7000000000000001", "chat n", 920, 990, {
-            "gen_ai.operation.name": "chat", "gen_ai.server.time_to_first_token": 0.02})])]})
+            "gen_ai.operation.name": "chat", "gen_ai.server.time_to_first_token": 0.02}),
+        span("7000000000000004", "7000000000000001", "chat v", 991, 999, {  # Vercel AI SDK's current name
+            "gen_ai.operation.name": "chat", "gen_ai.client.operation.time_to_first_chunk": 0.003})])]})
     t, runs = only_trace(client)
     assert round(t["first_token_time"], 3) == 0.58  # first chunk of the first model call, from the request start
-    assert [round(r["first_token_time"] or 0, 3) for r in runs] == [0.58, 0.48, 0.02]
+    assert [round(r["first_token_time"] or 0, 3) for r in runs] == [0.58, 0.48, 0.02, 0.003]
 
 
 def test_official_otel_langchain_instrumentation(client):

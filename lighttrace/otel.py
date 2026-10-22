@@ -152,8 +152,8 @@ def _run(span, project, runtime, service):
                "ai.usage.totalTokens") or _pick(
         usage, "total", "total_tokens")
     # seconds from the request to the first streamed chunk (OTel GenAI spec name first)
-    ttft = _first(a, "gen_ai.response.time_to_first_chunk", "gen_ai.response.time_to_first_token",
-                  "gen_ai.server.time_to_first_token")
+    ttft = _first(a, "gen_ai.response.time_to_first_chunk", "gen_ai.client.operation.time_to_first_chunk",
+                  "gen_ai.response.time_to_first_token", "gen_ai.server.time_to_first_token")
     if isinstance(ttft, (int, float)) and ttft > 0:
         run["first_token_time"] = float(ttft)
     if i is not None or o is not None:
