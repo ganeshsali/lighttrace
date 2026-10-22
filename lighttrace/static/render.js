@@ -169,7 +169,7 @@ function metaTab(r) {
     section("Metadata", jsonTree(ex.metadata || {}, 1)),
     ex.invocation_params ? section("Invocation params", jsonTree(ex.invocation_params, 1)) : null,
     section("Timing", jsonTree(timing, 1)),
-    section("IDs", jsonTree({ run_id: r.id, trace_id: r.trace_id, parent_run_id: r.parent_run_id, dotted_order: r.dotted_order, thread_id: r.thread_id }, 1)),
+    section("IDs", jsonTree({ run_id: r.id, trace_id: r.trace_id, parent_run_id: r.parent_run_id, thread_id: r.thread_id }, 1)),
     ex.runtime ? section("Runtime", jsonTree(ex.runtime, 0)) : null,
     r.events?.length ? section(`Events (${r.events.length})`, jsonTree(r.events, 0)) : null,
   ].filter(Boolean);

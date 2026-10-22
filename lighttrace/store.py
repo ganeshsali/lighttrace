@@ -23,7 +23,7 @@ META_KEY_RE = re.compile(r"^[\w.\-]{1,100}$")
 
 COLUMNS = {  # name -> type; {F} is a float column (DOUBLE PRECISION on Postgres)
     "id": "TEXT PRIMARY KEY", "project": "TEXT", "trace_id": "TEXT", "parent_run_id": "TEXT",
-    "dotted_order": "TEXT", "is_root": "INTEGER NOT NULL DEFAULT 0", "name": "TEXT", "run_type": "TEXT",
+    "is_root": "INTEGER NOT NULL DEFAULT 0", "name": "TEXT", "run_type": "TEXT",
     "status": "TEXT NOT NULL DEFAULT 'pending'", "start_time": "{F}", "end_time": "{F}", "latency": "{F}",
     "first_token_time": "{F}", "error": "TEXT", "inputs": "TEXT", "outputs": "TEXT", "extra": "TEXT",
     "tags": "TEXT", "events": "TEXT", "input_tokens": "INTEGER", "output_tokens": "INTEGER",
@@ -45,11 +45,16 @@ INDEXES = [
     "CREATE INDEX IF NOT EXISTS ix_runs_type_name ON runs(project, run_type, name)",
 ]
 JSON_COLS = ("inputs", "outputs", "extra", "tags", "events")
-SIMPLE_COLS = ("trace_id", "parent_run_id", "dotted_order", "name", "run_type", "error")
+SIMPLE_COLS = ("trace_id", "parent_run_id", "name", "run_type", "error")
 # A model call is often traced twice: by the framework (LangChain's chat-model span) and, inside it,
 # by the client library (the OpenAI SDK's span). Only the outer one counts for tokens, cost and the
 # dashboard; both stay visible in the trace.
 NESTED_LLM = "{t}.run_type = 'llm' AND EXISTS (SELECT 1 FROM runs p WHERE p.id = {t}.parent_run_id AND p.run_type = 'llm')"
+
+
+def _qs(values):
+    """`?, ?, ...` placeholders for an IN list."""
+    return ",".join("?" * len(values))
 
 
 def _llm(t="runs"):
@@ -172,15 +177,14 @@ def preview(value, limit=200):
 
 
 def _tree_order(runs, root):
-    """Runs in depth-first order, siblings by start. OTel spans have no dotted_order, and the
-    root span's children point at an id no row has (see otel.py): those hang under the root."""
+    """Runs in depth-first order, siblings by start. The root span's children point at an id no row has (see otel.py): those hang under the root."""
     ids = {r["id"] for r in runs}
     if root["is_root"]:
         for r in runs:
             if r is not root and r["parent_run_id"] not in ids:
                 r["parent_run_id"] = root["id"]
     kids = {}
-    for r in runs:  # already sorted by (dotted_order, start_time)
+    for r in runs:  # already sorted by start_time
         kids.setdefault(r["parent_run_id"], []).append(r)
     order, seen = [], set()
     stack = [r for r in runs if r["parent_run_id"] not in ids][::-1]
@@ -290,9 +294,6 @@ class _DB:
             return "(r.extra::jsonb #>> ?::text[])", "{metadata," + key + "}"
         return "CAST(json_extract(r.extra, ?) AS TEXT)", f'$.metadata."{key}"'
 
-    def in_list(self, values):
-        return ",".join("?" * len(values))
-
 
 # ---------------------------------------------------------------- store
 
@@ -355,11 +356,8 @@ class Store:
         if run.get("session_name"):
             cur["project"] = run["session_name"]
 
-        if not cur.get("trace_id"):
-            if cur.get("dotted_order"):
-                cur["trace_id"] = cur["dotted_order"].split(".")[0][-36:]
-            elif not cur.get("parent_run_id"):
-                cur["trace_id"] = run_id
+        if not cur.get("trace_id") and not cur.get("parent_run_id"):
+            cur["trace_id"] = run_id
         cur["is_root"] = int(cur.get("trace_id") == run_id)
         cur["status"] = "error" if cur.get("error") else ("success" if cur.get("end_time") else "pending")
         start, end = cur.get("start_time"), cur.get("end_time")
@@ -472,7 +470,7 @@ class Store:
             return out
         rows = self.db.q(
             "SELECT trace_id, model, SUM(input_tokens) AS i, SUM(output_tokens) AS o, SUM(total_tokens) AS t "
-            f"FROM runs WHERE trace_id IN ({self.db.in_list(trace_ids)}) AND {_llm()} "
+            f"FROM runs WHERE trace_id IN ({_qs(trace_ids)}) AND {_llm()} "
             "GROUP BY trace_id, model", trace_ids)
         for r in rows:
             u = out.setdefault(r["trace_id"], {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost": None})
@@ -493,7 +491,7 @@ class Store:
         ids = [r["id"] for r in need]
         first = {row["trace_id"]: row["t"] for row in self.db.q(
             "SELECT trace_id, MIN(start_time + first_token_time) AS t FROM runs "
-            f"WHERE trace_id IN ({self.db.in_list(ids)}) AND first_token_time IS NOT NULL GROUP BY trace_id", ids)}
+            f"WHERE trace_id IN ({_qs(ids)}) AND first_token_time IS NOT NULL GROUP BY trace_id", ids)}
         for r in need:
             if first.get(r["id"]) is not None:
                 r["first_token_time"] = max(0.0, first[r["id"]] - r["start_time"])
@@ -546,7 +544,7 @@ class Store:
             return {"items": [], "has_more": False}
         roots = self.db.q(
             "SELECT id, thread_id, start_time, latency, status, error FROM runs "
-            f"WHERE project = ? AND is_root = 1 AND thread_id IN ({self.db.in_list(ids)}) ORDER BY start_time",
+            f"WHERE project = ? AND is_root = 1 AND thread_id IN ({_qs(ids)}) ORDER BY start_time",
             [project] + ids)
         usage = self._llm_usage([r["id"] for r in roots])
         by = {}
@@ -555,7 +553,7 @@ class Store:
         firsts = [v[0]["id"] for v in by.values()]
         lasts = [v[-1]["id"] for v in by.values()]
         io = {r["id"]: r for r in self.db.q(
-            f"SELECT id, inputs, outputs FROM runs WHERE id IN ({self.db.in_list(firsts + lasts)})", firsts + lasts)}
+            f"SELECT id, inputs, outputs FROM runs WHERE id IN ({_qs(firsts + lasts)})", firsts + lasts)}
         items = []
         for tid in ids:
             turns = by.get(tid, [])
@@ -590,7 +588,7 @@ class Store:
         usage = self._llm_usage(ids)
         llm = self.db.q(
             "SELECT id, trace_id, name, model, input_tokens, output_tokens, total_tokens, start_time FROM runs "
-            f"WHERE trace_id IN ({self.db.in_list(ids)}) AND {_llm()} ORDER BY start_time", ids) if ids else []
+            f"WHERE trace_id IN ({_qs(ids)}) AND {_llm()} ORDER BY start_time", ids) if ids else []
         for r in roots:
             r.update({k: v for k, v in usage.get(r["id"], {}).items()})
             r["llm_runs"] = [x for x in llm if x["trace_id"] == r["id"]]
@@ -609,7 +607,7 @@ class Store:
 
     def trace(self, trace_id):
         runs = [self._full(r) for r in self.db.q(
-            "SELECT * FROM runs WHERE trace_id = ? ORDER BY dotted_order, start_time", (trace_id,))]
+            "SELECT * FROM runs WHERE trace_id = ? ORDER BY start_time", (trace_id,))]
         if not runs:
             return None
         for r in runs:

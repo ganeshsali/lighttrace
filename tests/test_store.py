@@ -6,8 +6,7 @@ import uuid
 
 def run(**kw):
     rid = kw.pop("id", None) or str(uuid.uuid4())
-    return {"id": rid, "trace_id": kw.pop("trace_id", rid), "dotted_order": f"20260101T000000000000Z{rid}",
-            "name": "root", "run_type": "chain", "start_time": "2026-01-01T00:00:00.000000",
+    return {"id": rid, "trace_id": kw.pop("trace_id", rid), "name": "root", "run_type": "chain", "start_time": "2026-01-01T00:00:00.000000",
             "session_name": "proj", "inputs": {"input": "hi"}, **kw}
 
 
@@ -42,8 +41,7 @@ def test_writes_need_the_csrf_header(client):
 def test_partial_update_before_full_run(client):
     """Updates merge whatever order they arrive in (OTel log events can come before their span)."""
     r = run()
-    patch = {"id": r["id"], "trace_id": r["id"], "dotted_order": r["dotted_order"],
-             "end_time": "2026-01-01T00:00:02.500000", "outputs": {"output": "done"}, "extra": {"metadata": {"b": 2}}}
+    patch = {"id": r["id"], "trace_id": r["id"], "end_time": "2026-01-01T00:00:02.500000", "outputs": {"output": "done"}, "extra": {"metadata": {"b": 2}}}
     ingest(client, [patch])
     r["extra"] = {"metadata": {"a": 1}}
     ingest(client, [r])

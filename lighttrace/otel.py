@@ -33,31 +33,14 @@ REMOTE_PARENT = 0x300  # span flags: HAS_IS_REMOTE | IS_REMOTE
 
 def parse(body, content_type, kind="traces"):
     """OTLP request body (protobuf or JSON) -> the Export*ServiceRequest as a JSON-style dict."""
-    if "protobuf" in content_type:
-        return to_dict(MESSAGES[kind]().FromString(body))
-    return json.loads(body)
-
-
-def to_dict(msg):
+    if "protobuf" not in content_type:
+        return json.loads(body)
     from google.protobuf.json_format import MessageToDict
-
-    return MessageToDict(msg, use_integers_for_enums=True)
-
-
-def _messages():
     from opentelemetry.proto.collector.logs.v1.logs_service_pb2 import ExportLogsServiceRequest
     from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
-    return {"traces": ExportTraceServiceRequest, "logs": ExportLogsServiceRequest}
-
-
-class _Lazy(dict):
-    def __missing__(self, key):
-        self.update(_messages())
-        return self[key]
-
-
-MESSAGES = _Lazy()
+    msg = ExportTraceServiceRequest if kind == "traces" else ExportLogsServiceRequest
+    return MessageToDict(msg.FromString(body), use_integers_for_enums=True)
 
 
 def _resources(request, key, project):
@@ -151,11 +134,10 @@ def _run(span, project, runtime, service):
     i = _first(a, "llm.token_count.prompt", "gen_ai.usage.input_tokens", "gen_ai.usage.prompt_tokens",
                "ai.usage.inputTokens", "ai.usage.promptTokens") or _pick(usage, "input", "prompt_tokens", "input_tokens")
     o = _first(a, "llm.token_count.completion", "gen_ai.usage.output_tokens", "gen_ai.usage.completion_tokens",
-               "ai.usage.outputTokens", "ai.usage.completionTokens") or _pick(usage, "output", "completion_tokens",
-                                                                             "output_tokens")
+               "ai.usage.outputTokens", "ai.usage.completionTokens") or _pick(
+        usage, "output", "completion_tokens", "output_tokens")
     t = _first(a, "llm.token_count.total", "llm.usage.total_tokens", "gen_ai.usage.total_tokens",
-               "ai.usage.totalTokens") or _pick(
-        usage, "total", "total_tokens")
+               "ai.usage.totalTokens") or _pick(usage, "total", "total_tokens")
     # seconds from the request to the first streamed chunk (OTel GenAI spec name first)
     ttft = _first(a, "gen_ai.response.time_to_first_chunk", "gen_ai.client.operation.time_to_first_chunk",
                   "gen_ai.response.time_to_first_token", "gen_ai.server.time_to_first_token")
