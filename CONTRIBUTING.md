@@ -6,7 +6,7 @@ with no build step, and no SDK of its own. Changes that keep it that way are the
 ## Develop
 
 ```bash
-python3.11 -m venv .venv && .venv/bin/pip install -e '.[test]'
+python3.11 -m venv .venv && .venv/bin/pip install -e '.[server,test]'
 .venv/bin/pytest -q
 ```
 

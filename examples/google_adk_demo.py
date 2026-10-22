@@ -1,20 +1,15 @@
-"""Google ADK with its built-in OpenTelemetry. A fake model stands in for Gemini (no LLM calls).
+"""Google ADK traced with lighttrace.register(). A fake model stands in for Gemini (no LLM calls).
 
-    pip install google-adk opentelemetry-sdk opentelemetry-exporter-otlp-proto-http
-    OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:1984 OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<key> \
-    OTEL_SERVICE_NAME=adk-demo python examples/google_adk_demo.py
+    pip install lighttrace google-adk
+    LIGHTTRACE_ENDPOINT=http://127.0.0.1:1984 LIGHTTRACE_API_KEY=<key> LIGHTTRACE_PROJECT=adk-demo \
+    python examples/google_adk_demo.py
 """
 
 import asyncio
 
-from opentelemetry import trace
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+import lighttrace
 
-provider = TracerProvider()
-provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
-trace.set_tracer_provider(provider)  # ADK uses the global provider; set it before importing ADK
+lighttrace.register()  # ADK has built-in OpenTelemetry; register() gives it a sender
 
 from google.adk.agents import LlmAgent  # noqa: E402
 from google.adk.models.base_llm import BaseLlm  # noqa: E402
@@ -52,4 +47,3 @@ async def main():
 
 
 asyncio.run(main())
-provider.shutdown()

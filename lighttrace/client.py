@@ -1,0 +1,139 @@
+"""lighttrace.register(): send an app's AI traces to a lighttrace server.
+
+lighttrace writes no instrumentation of its own. register() turns on the listeners that
+already exist for whatever the app has installed (OpenTelemetry's official GenAI
+instrumentations, or the framework's built-in OpenTelemetry) and points one OTLP/HTTP
+sender at lighttrace's receiver.
+"""
+
+import logging
+import os
+from importlib import import_module
+from importlib.metadata import PackageNotFoundError, distribution
+
+log = logging.getLogger("lighttrace")
+
+# (distribution the app has installed, "module:Instrumentor", records model calls itself).
+# OpenTelemetry's official listeners where they are complete; OpenInference's (Apache-2.0)
+# where the official one is missing or records too little.
+FRAMEWORKS = [
+    ("langchain-core", "opentelemetry.instrumentation.genai.langchain:LangChainInstrumentor", True),  # + LangGraph
+    # The official one (1.2b0) records only retrievals: no query, no model call, one trace each.
+    ("llama-index-core", "openinference.instrumentation.llama_index:LlamaIndexInstrumentor", True),
+    ("crewai", "openinference.instrumentation.crewai:CrewAIInstrumentor", True),  # no official one yet
+    # These record the workflow, agents and tools; the model calls come from the client listener.
+    ("openai-agents", "opentelemetry.instrumentation.genai.openai_agents:OpenAIAgentsInstrumentor", False),
+    ("dspy", "opentelemetry.instrumentation.genai.dspy:DSPyInstrumentor", False),
+    ("smolagents", "opentelemetry.instrumentation.genai.smolagents:SmolagentsInstrumentor", False),
+    ("agno", "opentelemetry.instrumentation.genai.agno:AgnoInstrumentor", False),
+    ("qwen-agent", "opentelemetry.instrumentation.genai.qwen_agent:QwenAgentInstrumentor", False),
+]
+# Frameworks that emit OpenTelemetry themselves: they only need the sender (Pydantic AI
+# also needs switching on, below).
+BUILT_IN = ["google-adk", "strands-agents", "agent-framework-core", "semantic-kernel", "pydantic-ai-slim"]
+# Model clients, traced unless every framework present records its model calls itself: then the
+# same call would be recorded twice (and, in async LangChain code, as a separate trace).
+CLIENTS = [
+    ("openai", "opentelemetry.instrumentation.genai.openai:OpenAIInstrumentor"),
+    ("anthropic", "opentelemetry.instrumentation.genai.anthropic:AnthropicInstrumentor"),
+    ("boto3", "opentelemetry.instrumentation.genai.bedrock:BedrockInstrumentor"),
+    ("google-genai", "opentelemetry.instrumentation.google_genai:GoogleGenAiSdkInstrumentor"),
+    ("portkey-ai", "opentelemetry.instrumentation.genai.portkey:PortkeyInstrumentor"),
+]
+
+_provider = None
+
+
+def _installed(name):
+    try:
+        distribution(name)
+        return True
+    except PackageNotFoundError:
+        return False
+
+
+def _targets(clients=None):
+    """The (distribution, "module:Instrumentor") listeners to turn on for this environment."""
+    frameworks = [t for t in FRAMEWORKS if _installed(t[0])]
+    if clients is None:
+        covered = [own for _, _, own in frameworks] + [True for d in BUILT_IN if _installed(d)]
+        clients = not covered or not all(covered)
+    return [t[:2] for t in frameworks] + ([t for t in CLIENTS if _installed(t[0])] if clients else [])
+
+
+def register(project=None, *, endpoint=None, api_key=None, capture_content=True, clients=None):
+    """Trace this app to lighttrace. Call once at startup, before the app does any AI work.
+
+    Settings default to the environment: LIGHTTRACE_ENDPOINT (the server's base URL),
+    LIGHTTRACE_API_KEY (one of the server's LIGHTTRACE_API_KEYS) and LIGHTTRACE_PROJECT
+    (else OTEL_SERVICE_NAME). Without an endpoint and a key it does nothing, so the same
+    code runs untraced wherever they aren't set.
+
+    capture_content: send prompts, answers, tool arguments and results (lighttrace is
+    self-hosted). clients: also trace raw model clients (OpenAI, Anthropic, Bedrock, Google
+    GenAI, Portkey); by default only when no framework is installed.
+
+    Returns the OpenTelemetry TracerProvider, or None when tracing is off.
+    """
+    global _provider
+    if _provider is not None:
+        return _provider
+    endpoint = (endpoint or os.environ.get("LIGHTTRACE_ENDPOINT") or "").strip().rstrip("/")
+    api_key = api_key or os.environ.get("LIGHTTRACE_API_KEY") or ""
+    project = project or os.environ.get("LIGHTTRACE_PROJECT") or os.environ.get("OTEL_SERVICE_NAME") or "default"
+    if not endpoint or not api_key:
+        log.info("lighttrace: LIGHTTRACE_ENDPOINT or LIGHTTRACE_API_KEY not set, not tracing")
+        return None
+
+    # Read by the listeners when they start, so set before instrumenting; explicit settings win.
+    os.environ.setdefault("OTEL_SEMCONV_STABILITY_OPT_IN", "gen_ai_latest_experimental")
+    if capture_content:
+        os.environ.setdefault("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT", "SPAN_ONLY")
+        os.environ.setdefault("ENABLE_SENSITIVE_DATA", "true")  # Microsoft Agent Framework
+        os.environ.setdefault("SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE", "true")
+    os.environ.setdefault("SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS", "true")
+
+    from opentelemetry import trace
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.resources import Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+    url = endpoint if endpoint.endswith("/v1/traces") else endpoint + "/v1/traces"
+    sender = BatchSpanProcessor(OTLPSpanExporter(endpoint=url, headers={
+        "x-api-key": api_key, "x-lighttrace-project": project}))
+    existing = trace.get_tracer_provider()
+    if isinstance(existing, TracerProvider):  # the app already set up OpenTelemetry: add to it
+        existing.add_span_processor(sender)
+        provider = existing
+    else:
+        provider = TracerProvider(resource=Resource.create({"service.name": project}))
+        provider.add_span_processor(sender)
+        trace.set_tracer_provider(provider)  # built-in frameworks read the global provider
+
+    on = []
+    for dist, target in _targets(clients):
+        module, _, cls = target.partition(":")
+        try:
+            instrumentor = getattr(import_module(module), cls)()
+        except ImportError:  # a listener missing from this install: say so, keep going
+            log.warning("lighttrace: no listener installed for %s", dist)
+            continue
+        try:
+            # The library is installed (checked above); its version range is the listener's
+            # concern, and a mismatch shouldn't stop the app from starting.
+            instrumentor.instrument(tracer_provider=provider, skip_dep_check=True)
+            on.append(dist)
+        except Exception:
+            log.warning("lighttrace: could not trace %s", dist, exc_info=True)
+    if _installed("pydantic-ai-slim"):
+        try:
+            from pydantic_ai import Agent
+
+            Agent.instrument_all()
+        except Exception:
+            log.warning("lighttrace: could not trace pydantic-ai", exc_info=True)
+    on += [d for d in BUILT_IN if _installed(d)]
+    log.info("lighttrace: tracing %s to %s, project %r", ", ".join(on) or "nothing found yet", endpoint, project)
+    _provider = provider
+    return provider

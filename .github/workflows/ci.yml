@@ -28,7 +28,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -e '.[test]'
+      - run: pip install -e '.[server,test]'
       - run: pytest -q   # SQLite and Postgres variants
 
   frameworks:
@@ -40,10 +40,9 @@ jobs:
         with:
           python-version: "3.11"
       - run: >-
-          pip install -e '.[test]' openinference-instrumentation-langchain llama-index-core
-          openinference-instrumentation-llama-index openai-agents openinference-instrumentation-openai-agents
-          pydantic-ai-slim google-adk
-      - run: pytest -q -rs tests/test_frameworks.py
+          pip install -e '.[server,test]' openinference-instrumentation-langchain llama-index-core
+          openai-agents pydantic-ai-slim google-adk
+      - run: pytest -q -rs tests/test_frameworks.py tests/test_register.py
 
   docker:
     runs-on: ubuntu-latest

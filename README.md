@@ -1,12 +1,20 @@
 # lighttrace
 
-A small, self-hosted tracing server with a web UI for **LLM apps and agents**.
-It has **one receiver**: OpenTelemetry (OTLP over HTTP) at `/v1/traces`. Every framework and app sends
-there the same way: LangChain and LangGraph (through the LangSmith SDK's OpenTelemetry mode, settings
-only, no code change), LlamaIndex, CrewAI, OpenAI Agents, Pydantic AI, Google ADK, Vercel AI SDK, plain
-OpenTelemetry from any language — see [Supported frameworks](#supported-frameworks).
+Self-hosted tracing with a web UI for **AI apps and agents**. An app adds two lines:
 
-- One Python process (FastAPI). Storage in **SQLite** (one file, default) or **Postgres**.
+```python
+import lighttrace          # pip install lighttrace
+lighttrace.register()
+```
+
+and every model call, tool call and agent step (with tokens, cost and time to first token) shows up in
+lighttrace. `register()` turns on the right listener for whatever the app uses: LangChain, LangGraph,
+LlamaIndex, CrewAI, OpenAI Agents, Pydantic AI, Google ADK, Strands, Microsoft Agent Framework, raw
+OpenAI/Anthropic/Bedrock/Gemini clients and more — see [Supported frameworks](#supported-frameworks).
+The server has **one receiver**, standard OpenTelemetry at `/v1/traces`, so anything else that speaks
+OpenTelemetry (other languages, the Vercel AI SDK) can send too.
+
+- The server is one Python process (FastAPI). Storage in **SQLite** (one file, default) or **Postgres**.
   ~50–100 MB RAM; runs comfortably on a 2 CPU / 4 GB box.
 - Keep traces for N days or **forever** (`LIGHTTRACE_RETENTION_DAYS=0`).
 - Ingest protected by API keys (`LIGHTTRACE_API_KEYS`), UI by a password. Binds `127.0.0.1` by default.
@@ -55,33 +63,45 @@ Light and dark mode, persisted per browser.
 
 ## Point your app at it
 
-Every app sends to the same place. In the app you want to trace:
-
-```
-OTEL_EXPORTER_OTLP_ENDPOINT=http://<lighttrace-host>:1984
-OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<one of LIGHTTRACE_API_KEYS>
-OTEL_SERVICE_NAME=myapp       # the project name; created on its first trace
+```bash
+pip install lighttrace
 ```
 
-**LangChain / LangGraph**: the `langsmith` SDK they ship can send OpenTelemetry. Add these and change
-no code (`pip install 'langsmith[otel]'` if the OpenTelemetry packages are missing):
-
-```
-LANGSMITH_TRACING=true
-LANGSMITH_OTEL_ENABLED=true
-LANGSMITH_OTEL_ONLY=true      # send only to lighttrace, never to LangSmith's cloud
+```python
+import lighttrace
+lighttrace.register()      # once at startup, before the app does any AI work
 ```
 
-Short scripts must let the SDK flush before exiting (see [`examples/demo_app.py`](examples/demo_app.py)).
-To group turns into threads, put `thread_id` (or `session_id` / `conversation_id`) in the run's
-metadata, e.g. `config={"metadata": {"thread_id": ...}}`.
+```
+LIGHTTRACE_ENDPOINT=http://<lighttrace-host>:1984
+LIGHTTRACE_API_KEY=<one of the server's LIGHTTRACE_API_KEYS>
+LIGHTTRACE_PROJECT=myapp   # the project; created on its first trace
+```
 
-**Other frameworks**: add their instrumentor or turn on their built-in OpenTelemetry; each one's setup
-is in [docs/](docs/README.md).
+That's all: no special start command, and it works with `--reload`, gunicorn, Docker and scripts (what is
+left is sent when the process exits). The settings can also be passed in code:
+`lighttrace.register(project="myapp", endpoint=..., api_key=...)`. Without an endpoint and a key,
+`register()` does nothing, so the same code runs untraced where they aren't set.
 
-Some apps load `.env` in a way that never reaches the SDK (pydantic-settings, for one). If traces
-do not arrive, export the variables in the shell, or have the app copy its own settings into
-`os.environ`.
+What `register()` does:
+
+1. **Finds the frameworks** the app has installed.
+2. **Turns on their listeners.** lighttrace writes none of its own: it uses OpenTelemetry's official GenAI
+   instrumentations, or OpenInference's where the official one is missing or incomplete (LlamaIndex,
+   CrewAI), and the framework's own OpenTelemetry where it has one (ADK, Strands, Microsoft Agent
+   Framework, Semantic Kernel, Pydantic AI). Model clients (OpenAI, Anthropic, Bedrock, Google GenAI,
+   Portkey) are traced unless the frameworks present already record their model calls, so a call is
+   never recorded twice.
+3. **Points one sender** at lighttrace with the key and project. Prompts, answers, tool arguments and
+   results are included (`register(capture_content=False)` leaves them out).
+
+If the app already set up OpenTelemetry, `register()` adds lighttrace as one more destination.
+Threads: put `thread_id` (or `session_id` / `conversation_id`) in the run's metadata or LangGraph
+config, e.g. `config={"configurable": {"thread_id": ...}}`.
+
+**No Python, or no code change at all?** Any OpenTelemetry exporter can send to the receiver directly:
+`OTEL_EXPORTER_OTLP_ENDPOINT=http://<host>:1984`, `OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<key>`,
+`OTEL_SERVICE_NAME=<project>` (see [docs/](docs/README.md)).
 
 ### The receiver
 
@@ -95,35 +115,35 @@ don't error). There is no other way in.
 Only the keys listed in `LIGHTTRACE_API_KEYS` (comma-separated) are accepted; anything else gets 401.
 Give each app or team its own key, and remove a key from the list (then restart) to shut that app out.
 
-Projects need no setup. Each trace goes to the project named by the `x-lighttrace-project` header,
-else the app's `service.name` (`OTEL_SERVICE_NAME`), else `default`; a new name creates the project on
-its first trace.
+Projects need no setup. Each trace goes to the project named by `LIGHTTRACE_PROJECT` (with
+`register()`; it is sent as the `x-lighttrace-project` header), else the app's `service.name`
+(`OTEL_SERVICE_NAME`), else `default`; a new name creates the project on its first trace.
 
 ### Supported frameworks
 
-Step-by-step pages with copy-paste setup are in [docs/](docs/README.md). "End to end" means a test
-runs the framework with its instrumentor (fake model, no LLM) against a live lighttrace;
-"real payload" means a test replays what the real exporter sent; "documented" means set up from the
-vendor's docs only.
+Per-framework notes and runnable examples are in [docs/](docs/README.md). "End to end" means a test runs
+the framework (fake model, or its real model class against a stub server: no LLM) through
+`lighttrace.register()` against a live lighttrace; "real payload" means a test replays what the real
+exporter sent; "documented" means set up from the vendor's docs only.
 
-| Framework | Route | Status |
+| Framework | Listener `register()` turns on | Status |
 |---|---|---|
-| [LangChain / LangGraph](docs/langgraph.md) | LangSmith SDK in OTel mode, settings only | end to end (`test_e2e.py`); real payloads |
-| [LangChain / LangGraph](docs/langgraph.md) | OpenInference | end to end (`examples/otel_demo.py`) |
-| [LlamaIndex](docs/llamaindex.md) | OpenInference | end to end |
-| [OpenAI Agents SDK](docs/openai-agents.md) | OpenInference | end to end |
-| [CrewAI](docs/crewai.md) | OpenInference | run by hand (see its page); skips in tests |
-| [Pydantic AI](docs/builtin-otel.md#pydantic-ai) | built-in OTel, or Logfire | end to end; real payloads for 0.4, 2.x and Logfire |
-| [Google ADK](docs/builtin-otel.md#google-adk) | built-in OTel | end to end (1.10); real payload (2.12) |
-| [Vercel AI SDK](docs/builtin-otel.md#vercel-ai-sdk-and-mastra-javascript) | built-in OTel | real payload; example run by hand |
-| [Mastra](docs/builtin-otel.md#vercel-ai-sdk-and-mastra-javascript) | via the AI SDK's spans | documented |
-| [Strands Agents](docs/builtin-otel.md#strands-agents-documented-only) | built-in OTel | documented |
-| [Semantic Kernel](docs/builtin-otel.md#semantic-kernel-documented-only) | built-in OTel | documented |
-| Langfuse SDK v3 | your exporter passed as `tracer_provider` | real payload; run by hand |
-| MLflow Tracing | OTLP export | real payload |
-| OpenAI SDK | official `opentelemetry-instrumentation-openai-v2` | real payload (spans + log events) |
-| Many LLM clients | [OpenLLMetry](docs/README.md#openllmetry-one-alternative-for-all-of-them) / OpenLIT | real payloads |
-| [Your own spans, any language](docs/manual-otel.md) | plain OTel + GenAI attributes | end to end |
+| [LangChain / LangGraph](docs/langgraph.md) | OpenTelemetry's official (records model calls, tokens, time to first token) | end to end; real payload |
+| [LlamaIndex](docs/llamaindex.md) | OpenInference's (the official one records only retrievals today) | end to end |
+| [OpenAI Agents SDK](docs/openai-agents.md) | official + the OpenAI client's (model calls) | end to end, incl. the real model class |
+| [CrewAI](docs/crewai.md) | OpenInference's (no official one yet) | run by hand (see its page) |
+| [Pydantic AI](docs/builtin-otel.md#pydantic-ai) | its built-in OpenTelemetry | end to end; real payloads for 0.4, 2.x and Logfire |
+| [Google ADK](docs/builtin-otel.md#google-adk) | its built-in OpenTelemetry | end to end (1.10); real payload (2.12) |
+| [Strands Agents](docs/builtin-otel.md#strands-agents) | its built-in OpenTelemetry | documented |
+| [Microsoft Agent Framework](docs/builtin-otel.md#microsoft-agent-framework) | its built-in OpenTelemetry | documented |
+| [Semantic Kernel](docs/builtin-otel.md#semantic-kernel) | its built-in OpenTelemetry | documented |
+| DSPy, smolagents, Agno, Qwen-Agent | official + the model client's | documented |
+| OpenAI, Anthropic, Bedrock, Google GenAI, Portkey (no framework) | official client listeners | OpenAI: real payload |
+| [Vercel AI SDK](docs/builtin-otel.md#vercel-ai-sdk-and-mastra-javascript) (JavaScript) | its built-in OpenTelemetry, sending to `/v1/traces` | real payload; example run by hand |
+| [Your own spans, any language](docs/manual-otel.md) | plain OpenTelemetry + GenAI attributes | end to end |
+
+Also understood when sent over OpenTelemetry: the LangSmith SDK's OTel mode (end to end), MLflow,
+Langfuse SDK v3, OpenLLMetry and OpenLIT (real payloads).
 
 ### Supported transports & dialects
 
@@ -163,16 +183,11 @@ flag) hangs under a root for its service's part; if that service is entered seve
 the root spans all of them. The remote parent's span id stays in the span's `otel.remote_parent_span_id`
 metadata. Give each service its own `service.name` (`OTEL_SERVICE_NAME`).
 
-**Langfuse SDK v3** apps: give the SDK your own exporter, `Langfuse(tracer_provider=provider)` with
-`provider` set up as in [docs/](docs/README.md#the-opentelemetry-settings-every-page-uses). The SDK also
-keeps trying to send to its own `LANGFUSE_HOST`, which logs warnings when that isn't a Langfuse server;
-for a new app, an OpenInference or OpenLLMetry instrumentor is the cleaner route.
-
 ## Run it
 
 ```bash
-pip install .                       # SQLite only
-pip install '.[postgres]'           # with Postgres support
+pip install "lighttrace[server]"            # the server (SQLite); from a checkout: pip install ".[server]"
+pip install "lighttrace[server,postgres]"   # with Postgres support
 cp .env.example .env                # then set LIGHTTRACE_API_KEYS and LIGHTTRACE_PASSWORD
 lighttrace                          # http://127.0.0.1:1984  (--host, --port, --db override)
 ```
@@ -295,15 +310,14 @@ max_latency, min_tokens`.
 ## Development
 
 ```bash
-python3.11 -m venv .venv && .venv/bin/pip install -e '.[test]'
-.venv/bin/pytest            # includes an end-to-end LangGraph + real SDK test, no LLM calls
+python3.11 -m venv .venv && .venv/bin/pip install -e '.[server,test]'
+.venv/bin/pytest            # includes end-to-end LangGraph tests (register() and the LangSmith SDK), no LLM calls
 # framework end-to-end tests (tests/test_frameworks.py) skip unless the framework is installed, e.g.
-.venv/bin/pip install llama-index-core openinference-instrumentation-llama-index pydantic-ai-slim
+.venv/bin/pip install llama-index-core openai-agents pydantic-ai-slim
 LIGHTTRACE_TEST_PG=postgresql://user@127.0.0.1/lighttrace_test .venv/bin/pytest   # also on Postgres
 # sample traces (fake model, 3 threads) into a running server:
-LANGSMITH_TRACING=true LANGSMITH_OTEL_ENABLED=true LANGSMITH_OTEL_ONLY=true \
-  OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:1984 OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<key> \
-  OTEL_SERVICE_NAME=demo .venv/bin/python examples/demo_app.py
+LIGHTTRACE_ENDPOINT=http://127.0.0.1:1984 LIGHTTRACE_API_KEY=<key> LIGHTTRACE_PROJECT=demo \
+  .venv/bin/python examples/langgraph_demo.py
 ```
 
 The Postgres test database is wiped by the tests; never point it at real data.

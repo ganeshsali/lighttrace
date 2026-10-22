@@ -4,20 +4,41 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lighttrace"
-version = "0.1.0"
-description = "Lightweight self-hosted tracing server for LLM apps and agents (one OpenTelemetry receiver)"
+version = "0.2.0"
+description = "Self-hosted tracing for AI apps and agents: one register() call in the app, one small server"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-dependencies = ["fastapi>=0.110", "uvicorn>=0.29", "opentelemetry-proto>=1.20"]
+# What an app installs: the OpenTelemetry sender and OpenTelemetry's official GenAI listeners
+# (small, pure Python; none pulls in the framework it listens to). register() turns on the
+# ones whose framework is installed.
+dependencies = [
+    "opentelemetry-sdk>=1.43,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.43,<2",
+    "opentelemetry-instrumentation-genai-langchain>=1.2b0,<2",
+    # OpenInference's where the official listener is missing or incomplete (see client.py)
+    "openinference-instrumentation-llama-index>=4",
+    "openinference-instrumentation-crewai>=1",
+    "opentelemetry-instrumentation-genai-openai-agents>=1.2b0,<2",
+    "opentelemetry-instrumentation-genai-dspy>=1.2b0,<2",
+    "opentelemetry-instrumentation-genai-smolagents>=1.2b0,<2",
+    "opentelemetry-instrumentation-genai-agno>=1.2b0,<2",
+    "opentelemetry-instrumentation-genai-qwen-agent>=1.2b0,<2",
+    "opentelemetry-instrumentation-genai-openai>=1.2b0,<2",
+    "opentelemetry-instrumentation-genai-anthropic>=1.2b0,<2",
+    "opentelemetry-instrumentation-genai-bedrock>=1.2b0,<2",
+    "opentelemetry-instrumentation-google-genai>=1.2b0,<2",
+    "opentelemetry-instrumentation-genai-portkey>=1.2b0,<2",
+]
 
 [project.optional-dependencies]
+# The server: pip install "lighttrace[server]" (and [postgres] for a postgresql:// database).
+server = ["fastapi>=0.110", "uvicorn>=0.29", "opentelemetry-proto>=1.20"]
 postgres = ["psycopg[binary]>=3.1"]
-test = ["pytest", "httpx", "langgraph", "langchain-core", "langsmith", "psycopg[binary]>=3.1",
-        "opentelemetry-sdk", "opentelemetry-exporter-otlp-proto-http"]
+test = ["pytest", "httpx", "langgraph", "langchain-core", "langsmith", "psycopg[binary]>=3.1"]
 
 [project.scripts]
-lighttrace = "lighttrace.app:main"
+lighttrace = "lighttrace:main"
 
 [tool.setuptools]
 packages = ["lighttrace"]

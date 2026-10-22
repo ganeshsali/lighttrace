@@ -1,19 +1,15 @@
-"""A one-agent CrewAI crew with OpenInference, using a fake LLM (no LLM calls).
+"""A one-agent CrewAI crew traced with lighttrace.register(), using a fake LLM (no LLM calls).
 
-    pip install crewai openinference-instrumentation-crewai opentelemetry-sdk opentelemetry-exporter-otlp-proto-http
-    CREWAI_DISABLE_TELEMETRY=true OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:1984 \
-    OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<key> OTEL_SERVICE_NAME=crewai-demo python examples/crewai_demo.py
+    pip install "lighttrace[crewai]" crewai   # and CREWAI_DISABLE_TELEMETRY=true
+    LIGHTTRACE_ENDPOINT=http://127.0.0.1:1984 LIGHTTRACE_API_KEY=<key> LIGHTTRACE_PROJECT=crewai-demo \
+    python examples/crewai_demo.py
 """
 
 from crewai import Agent, BaseLLM, Crew, Task
-from openinference.instrumentation.crewai import CrewAIInstrumentor
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-provider = TracerProvider()
-provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
-CrewAIInstrumentor().instrument(tracer_provider=provider)
+import lighttrace
+
+lighttrace.register()
 
 
 class FakeLLM(BaseLLM):
@@ -27,4 +23,3 @@ agent = Agent(role="Weather reporter", goal="Answer weather questions", backstor
               llm=FakeLLM(model="fake-llm"))
 task = Task(description="Weather in Pune?", expected_output="One sentence.", agent=agent)
 print(Crew(agents=[agent], tasks=[task]).kickoff())
-provider.shutdown()

@@ -1,5 +1,7 @@
-"""Sample traced LangGraph app with a fake model (no LLM calls, no code changes for tracing).
-The LangSmith SDK inside LangChain sends OpenTelemetry to lighttrace's one receiver:
+"""Sample LangGraph app with a fake model (no LLM calls) and no tracing code of its own.
+
+Traced with lighttrace.register(): see examples/langgraph_demo.py. Or, with no code at all, through the
+LangSmith SDK's OpenTelemetry mode (what tests/test_e2e.py runs):
 
     pip install 'langsmith[otel]' langgraph
     LANGSMITH_TRACING=true LANGSMITH_OTEL_ENABLED=true LANGSMITH_OTEL_ONLY=true \

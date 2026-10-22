@@ -1,57 +1,53 @@
 # Sending traces to lighttrace
 
-lighttrace has no SDK of its own and **one receiver**: OpenTelemetry at `http://<host>:1984/v1/traces`.
-Every framework below sends there, with libraries the app may already use:
+**One method for every Python app:**
 
-| Page | For |
+```bash
+pip install lighttrace
+```
+
+```python
+import lighttrace
+lighttrace.register()      # once at startup, before the app does any AI work
+```
+
+```bash
+export LIGHTTRACE_ENDPOINT=http://127.0.0.1:1984
+export LIGHTTRACE_API_KEY=<one of the server's LIGHTTRACE_API_KEYS>
+export LIGHTTRACE_PROJECT=my-app       # the project; created on its first trace
+```
+
+`register()` finds the frameworks the app uses and turns on the right listener for each (lighttrace
+writes none of its own), then points one OpenTelemetry sender at the server. Same code everywhere: no
+special start command, works with `--reload`, gunicorn, Docker and short scripts. Without
+`LIGHTTRACE_ENDPOINT` and `LIGHTTRACE_API_KEY` it does nothing.
+
+Options: `register(project=..., endpoint=..., api_key=...)` instead of the variables;
+`capture_content=False` to leave prompts, answers and tool data out; `clients=True/False` to force
+tracing of raw model clients (OpenAI, Anthropic, …) on or off. It returns the OpenTelemetry
+`TracerProvider` (or `None` when off), and adds itself to an existing OpenTelemetry setup if the app has one.
+
+| Page | Notes for |
 |---|---|
-| [LangChain](langchain.md) | LangChain apps (the LangSmith SDK's OTel mode, no code change; or OpenInference) |
-| [LangGraph](langgraph.md) | LangGraph agents (same two options) |
-| [LlamaIndex](llamaindex.md) | LlamaIndex apps (OpenInference) |
-| [CrewAI](crewai.md) | CrewAI crews (OpenInference) |
-| [OpenAI Agents SDK](openai-agents.md) | `openai-agents` (OpenInference) |
-| [Frameworks with built-in OpenTelemetry](builtin-otel.md) | Pydantic AI, Google ADK, Strands, Semantic Kernel, Vercel AI SDK / Mastra |
-| [Plain OpenTelemetry](manual-otel.md) | Anything else: your own spans, any language |
+| [LangChain](langchain.md) | LangChain apps |
+| [LangGraph](langgraph.md) | LangGraph agents, threads |
+| [LlamaIndex](llamaindex.md) | LlamaIndex apps |
+| [CrewAI](crewai.md) | CrewAI crews |
+| [OpenAI Agents SDK](openai-agents.md) | `openai-agents` |
+| [Frameworks with built-in OpenTelemetry](builtin-otel.md) | Pydantic AI, Google ADK, Strands, Microsoft Agent Framework, Semantic Kernel, Vercel AI SDK / Mastra (JavaScript) |
+| [Plain OpenTelemetry](manual-otel.md) | Your own spans, other languages, no lighttrace package |
 
-Everything below needs a running lighttrace and one of its `LIGHTTRACE_API_KEYS`. In the examples the
-server is `http://127.0.0.1:1984`.
+## Without the lighttrace package
 
-## The OpenTelemetry settings every page uses
+The server's receiver is standard OpenTelemetry, so any exporter can send to it directly (other
+languages, an existing OpenTelemetry setup, the zero-code `opentelemetry-instrument` launcher):
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:1984
+export OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf   # lighttrace speaks OTLP over HTTP, not gRPC
 export OTEL_EXPORTER_OTLP_HEADERS=x-api-key=<your key>
-export OTEL_SERVICE_NAME=my-app        # the project; created on its first trace
+export OTEL_SERVICE_NAME=my-app
 ```
 
-Use the HTTP protocol (the default in Python; set `OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf` where the
-default is gRPC). The standard OpenTelemetry exporter
-reads these variables, so the Python setup is the same three lines everywhere:
-
-```python
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-
-provider = TracerProvider()
-provider.add_span_processor(BatchSpanProcessor(OTLPSpanExporter()))
-```
-
-Call `provider.shutdown()` before a short script exits, or the last spans are lost.
-
-## OpenLLMetry: one alternative for all of them
-
-[OpenLLMetry](https://github.com/traceloop/openllmetry) (Traceloop, Apache-2.0) instruments most
-frameworks and LLM clients at once:
-
-```bash
-pip install traceloop-sdk
-```
-
-```python
-from traceloop.sdk import Traceloop
-Traceloop.init(app_name="my-app", api_endpoint="http://127.0.0.1:1984",
-               headers={"x-api-key": "<your key>"}, telemetry_enabled=False)
-```
-
-It sends metrics too; lighttrace accepts and drops them.
+Instrumentations from OpenInference, OpenLLMetry (`Traceloop.init(api_endpoint=..., headers={"x-api-key": ...})`),
+OpenLIT, MLflow and the LangSmith SDK's OTel mode are understood as well.
