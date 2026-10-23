@@ -4,11 +4,11 @@ In an app:   import lighttrace; lighttrace.register()          (pip install ligh
 The server:  lighttrace                                         (pip install "lighttrace[server]")
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
-from .client import register
+from .client import register, tracing_context
 
-__all__ = ["register"]
+__all__ = ["register", "tracing_context"]
 
 
 def main():

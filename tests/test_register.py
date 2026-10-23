@@ -111,3 +111,56 @@ def test_register_langgraph_end_to_end(live_server):
     assert [r["name"] for r in runs if r["run_type"] == "tool"] == ["get_stock"]
     assert all(r["extra"]["metadata"].get("thread_id") == "t-9" for r in llms)  # run metadata comes along
     assert {r["run_type"] for r in runs if r["name"] == "agent"} == {"chain"}  # a node named "agent" is a chain
+
+
+def test_tracing_context_leaves_calls_out():
+    script = """
+import asyncio, lighttrace
+from openinference.instrumentation.langchain import LangChainInstrumentor
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from langchain_core.language_models.fake_chat_models import FakeListChatModel
+
+spans = InMemorySpanExporter()
+provider = TracerProvider()
+provider.add_span_processor(SimpleSpanProcessor(spans))
+LangChainInstrumentor().instrument(tracer_provider=provider)
+llm = FakeListChatModel(responses=["pong"] * 3)
+
+async def main():
+    with lighttrace.tracing_context(enabled=False):
+        await llm.ainvoke("hidden")
+        with lighttrace.tracing_context(enabled=True):
+            await llm.ainvoke("shown")
+    await llm.ainvoke("shown")
+
+asyncio.run(main())
+print(len(spans.get_finished_spans()))
+"""
+    out = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True)
+    assert out.stdout.strip() == "2", out.stderr
+
+
+def test_sender_drops_ignored_spans_from_any_source():
+    """A framework's built-in OpenTelemetry doesn't check the flag: the sender drops its spans,
+    and their children, itself."""
+    from opentelemetry import context, trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    spans = InMemorySpanExporter()
+    provider = TracerProvider()
+    provider.add_span_processor(client._skip_ignored(SimpleSpanProcessor(spans)))
+    tracer = provider.get_tracer("framework")
+    with client.tracing_context(enabled=False), tracer.start_as_current_span("hidden") as hidden:
+        with tracer.start_as_current_span("hidden child"):
+            pass
+        # a child given an explicit context without the flag still follows its ignored parent
+        tracer.start_span("hidden explicit", context=trace.set_span_in_context(hidden, context.Context())).end()
+        with client.tracing_context(enabled=True), tracer.start_as_current_span("shown inside"):
+            pass
+    with tracer.start_as_current_span("shown"):
+        pass
+    assert [s.name for s in spans.get_finished_spans()] == ["shown inside", "shown"]

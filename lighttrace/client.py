@@ -8,6 +8,7 @@ sender at LightTrace's receiver.
 
 import logging
 import os
+from contextlib import contextmanager
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError, distribution
 
@@ -113,6 +114,61 @@ def _semantic_kernel_events():
     events.propagate = False  # these records hold prompts and answers: keep them out of the app's own logs
 
 
+@contextmanager
+def tracing_context(enabled=False):
+    """Leave the calls made in this block out of the traces:
+
+        with lighttrace.tracing_context(enabled=False):
+            await llm.ainvoke(...)
+
+    enabled=True turns tracing back on inside an outer disabled block. Works across await and in
+    tasks started inside the block (OpenTelemetry's context is a contextvar). The listeners skip
+    the block themselves; anything else that records it (a framework's built-in OpenTelemetry) is
+    dropped by LightTrace's sender, see _skip_ignored().
+    """
+    from opentelemetry import context
+
+    token = context.attach(context.set_value(context._SUPPRESS_INSTRUMENTATION_KEY, not enabled))
+    try:
+        yield
+    finally:
+        context.detach(token)
+
+
+def _skip_ignored(sender):
+    """Wrap LightTrace's sender so it drops spans started inside tracing_context(enabled=False), and
+    their children, whoever made them. An explicit enabled=True on a span's context keeps it."""
+    from opentelemetry import context, trace
+    from opentelemetry.sdk.trace import SpanProcessor
+
+    class SkipIgnored(SpanProcessor):
+        def __init__(self):
+            self.ignored = set()  # span ids, removed when the span ends
+
+        def on_start(self, span, parent_context=None):
+            off = context.get_value(context._SUPPRESS_INSTRUMENTATION_KEY, parent_context)
+            if off is None:  # not set here: follow the parent (some callers pass a context without it)
+                off = trace.get_current_span(parent_context).get_span_context().span_id in self.ignored
+            if off:
+                self.ignored.add(span.context.span_id)
+            else:
+                sender.on_start(span, parent_context=parent_context)
+
+        def on_end(self, span):
+            if span.context.span_id in self.ignored:
+                self.ignored.discard(span.context.span_id)
+            else:
+                sender.on_end(span)
+
+        def shutdown(self):
+            sender.shutdown()
+
+        def force_flush(self, timeout_millis=30000):
+            return sender.force_flush(timeout_millis)
+
+    return SkipIgnored()
+
+
 def register(project=None, *, endpoint=None, api_key=None, capture_content=True, clients=None):
     """Trace this app to LightTrace. Call once at startup, before the app does any AI work.
 
@@ -156,8 +212,8 @@ def register(project=None, *, endpoint=None, api_key=None, capture_content=True,
     from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
     url = endpoint if endpoint.endswith("/v1/traces") else endpoint + "/v1/traces"
-    sender = BatchSpanProcessor(OTLPSpanExporter(endpoint=url, headers={
-        "x-api-key": api_key, "x-lighttrace-project": project}))
+    sender = _skip_ignored(BatchSpanProcessor(OTLPSpanExporter(endpoint=url, headers={
+        "x-api-key": api_key, "x-lighttrace-project": project})))
     existing = trace.get_tracer_provider()
     if isinstance(existing, TracerProvider):  # the app already set up OpenTelemetry: add to it
         existing.add_span_processor(sender)

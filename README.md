@@ -165,6 +165,15 @@ lighttrace.register(
 It returns the OpenTelemetry `TracerProvider`, or `None` when tracing is off. Calling it again
 returns the same provider.
 
+To leave some calls out of the traces (a health-check ping, say), wrap them. This works with every
+framework, across `await`, and for everything the calls start; `enabled=True` turns tracing back on
+inside such a block:
+
+```python
+with lighttrace.tracing_context(enabled=False):
+    await llm.ainvoke([HumanMessage(content="ping")], max_tokens=1)
+```
+
 **What `register()` does:**
 
 1. **Finds the frameworks** the app has installed.

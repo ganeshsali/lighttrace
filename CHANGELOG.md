@@ -6,6 +6,13 @@ All notable changes to LightTrace are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-23
+
+### Added
+
+- `lighttrace.tracing_context(enabled=False)`: leave the calls in a block out of the traces, with
+  any framework (the listeners skip them, and LightTrace's sender drops whatever else records them).
+
 ## [0.1.0] - 2026-10-22
 
 First release.
@@ -28,5 +35,6 @@ First release.
   password-protected UI.
 - Docker image and a PyPI package.
 
-[Unreleased]: https://github.com/ganeshsali/lighttrace/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ganeshsali/lighttrace/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/ganeshsali/lighttrace/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/ganeshsali/lighttrace/releases/tag/v0.1.0
